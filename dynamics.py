@@ -24,7 +24,11 @@ class Dynamic:
 
 class Vasicek(Dynamic):
     '''
-    Simple single factor Vasicek model with constant volatility 
+    Simple single factor Vasicek model with constant volatility
+    initial is the starting rate
+    mean is the mean reverting parameter
+    reversion is how quickly it returns to the mean
+    volatility doesn't need an explanation
     '''
     def __init__(
             self, 
@@ -40,7 +44,7 @@ class Vasicek(Dynamic):
         self.vol    = volatility
 
     def oneStep(self, stepfrom, stepsize):
-        return stepfrom+(self.mean+self.rev*stepfrom)*stepsize+self.vol*np.sqrt(stepsize)*np.random.normal(0,1)
+        return stepfrom+(self.mean-self.rev*stepfrom)*stepsize+self.vol*np.sqrt(stepsize)*np.random.normal(0,1)
 
         
     

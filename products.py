@@ -1,3 +1,6 @@
 import numpy as np
 
-def swap():
+def payerSwap(fixedSchedule, fixedRate, floatingSchedule, floatingRate, duration, stepsize):
+    '''
+    
+    '''
