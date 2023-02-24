@@ -20,9 +20,19 @@ class Dynamic:
         np.random.seed(seed)
         for i in range(steps):
             path.append((self.oneStep(path[i], stepsize)))
-            time.append(i+1)
+            time.append((i+1)*stepsize)
 
         return np.array(time), np.array(path)
+
+    def forward_rate(self, time, start, end, initRate=None):
+        if initRate==None: 
+            initRate = self.init
+
+        duration = end-start
+        if time>=end:
+            return 1
+
+        return (self.ZCB(start-time,initRate)/self.ZCB(end-time,initRate)-1)/duration
 
 
 class Vasicek(Dynamic):

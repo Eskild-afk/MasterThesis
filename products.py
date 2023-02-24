@@ -21,15 +21,14 @@ def payerSwap(time:float, fixedSchedule:np.array, floatingSchedule:np.array, fix
         raise Exception("Floating and fixed schedule are not the same to end with")
 
     #Firstly, we are only interested in the remaining payments, so we cut off schedules that have already happed
-    floatingSchedule = floatingSchedule[fixedSchedule>time] 
+    floatingSchedule = floatingSchedule[floatingSchedule>time] 
     fixedSchedule    = fixedSchedule[fixedSchedule>time]    
     
     #floating part
     floatingPart = 0
     for j in floatingSchedule:
         D = model.ZCB(duration=(j-time)*stepsize, initRate=floatingRate[np.where(floatingTimeStamp==time)][0])
-        F = model.expectedRate(duration=(j-1-time)*stepsize, initRate=floatingRate[np.where(floatingTimeStamp==time)][0])*stepsize
-        
+        F = model.forward_rate(time*stepsize, (j-1)*stepsize, j*stepsize, initRate=floatingRate[np.where(floatingTimeStamp==time)][0])*stepsize
         floatingPart += D*F
     
     #fixed part
@@ -40,5 +39,5 @@ def payerSwap(time:float, fixedSchedule:np.array, floatingSchedule:np.array, fix
 
     return floatingPart - fixedPart
 
-
-
+def payerSwaption(time:float, fixedSchedule):
+    pass
