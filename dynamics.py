@@ -30,7 +30,7 @@ class Dynamic:
 
         duration = end-start
         if time>=end:
-            return 1
+            return 0
 
         return (self.ZCB(start-time,initRate)/self.ZCB(end-time,initRate)-1)/duration
 
@@ -60,6 +60,9 @@ class Vasicek(Dynamic):
         return stepfrom+(self.mean+self.rev*stepfrom)*stepsize+self.vol*np.sqrt(stepsize)*np.random.normal(0,1)
 
     def ZCB(self, duration, initRate=None):
+        if duration == 0:
+            return 1
+
         if initRate==None: 
             initRate = self.init
         
