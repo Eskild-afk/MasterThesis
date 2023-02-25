@@ -9,16 +9,15 @@ def parSwapRate(fixedSchedule:np.array, floatingSchedule:np.array, rate:float, m
     for j in range(1, len(floatingSchedule)):
         Tj  = floatingSchedule[j]   # T_j
         Tjm = floatingSchedule[j-1] # T_{j-1}
-        D = model.ZCB(duration=Tj-Tjm, initRate=rate)
-        F = model.forward_rate(0, Tjm, Tj, initRate=rate)
+        D = model.ZCB(duration=Tj, initRate=rate)
+        F = model.forward_rate(time=0, start=Tjm, end=Tj, initRate=rate)
         top += D*F*(Tj-Tjm)
     
     for i in range(1, len(fixedSchedule)):
         Si  = fixedSchedule[i]   # S_j
         Sim = fixedSchedule[i-1] # S_{j-1}
-        D = model.ZCB(duration=Si-Sim, initRate=rate)
+        D = model.ZCB(duration=Si, initRate=rate)
         bot += D*(Si-Sim)
-
     return top/bot
 
 
@@ -57,10 +56,10 @@ def payerSwap(time:float, fixedSchedule:np.array, floatingSchedule:np.array, fix
                 nt = find_nearest(floatingTimeStamp, Tjm)                   #nearest time (by construction it should be exactly equal but decimals and such can fuck it up)
                 rjm = floatingRate[np.where(floatingTimeStamp==nt)][0]      #rate at time Tjm
                 F = (1/model.ZCB(duration=Tj-Tjm, initRate=rjm)-1)/(Tj-Tjm)
-
+                
             else:
                 F = model.forward_rate(time, Tjm, Tj, initRate=r)
-            
+                
             D = model.ZCB(duration=Tj-time, initRate=r)
             floatingPart += D*F*(Tj-Tjm)
     
