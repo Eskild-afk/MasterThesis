@@ -52,7 +52,7 @@ class Vasicek(Dynamic):
     def oneStep(self, stepfrom, stepsize):
         return stepfrom+(self.mean+self.rev*stepfrom)*stepsize+self.vol*np.sqrt(stepsize)*np.random.normal(0,1)
 
-    def ZCB(self, duration, initRate=None):
+    def ZCB(self, duration, time=None, initRate=None):
         if duration == 0:
             return 1
 
@@ -83,7 +83,7 @@ class Vasicek(Dynamic):
         if time>end:
             return 0
 
-        return (self.ZCB(start-time,initRate)/self.ZCB(end-time,initRate)-1)/duration
+        return (self.ZCB(duration=start-time,initRate=initRate)/self.ZCB(duration=end-time,initRate=initRate)-1)/duration
 
 
 
@@ -126,17 +126,18 @@ class G2PP(Dynamic):
             W1 = np.random.normal(0,1)
             W2 = self.rho*W1+np.sqrt(1-np.square(self.rho))*np.random.normal(0,1)
             dx = -self.a*x[i]+self.sigma*np.sqrt(stepsize)*W1
-            dy = -self.b*y[i]+self.sigma*np.sqrt(stepsize)*W2
+            dy = -self.b*y[i]+self.eta*np.sqrt(stepsize)*W2
             x.append(x[i]+dx)
             y.append(y[i]+dy)
             rate.append(rate[i]+dx+dy)
+
         self.x = x
         self.y = y
-        self.time = time
-        return time, rate
+        self.time = np.array(time)
+        return np.array(time), np.array(rate)
     
     def ZCB(self, duration, time, initRate=None):
-        index = np.where(self.time==time)
+        index = int(np.where(self.time==time)[0])
         x     = self.x[index]
         y     = self.y[index]
 
@@ -153,8 +154,22 @@ class G2PP(Dynamic):
         M  = x*B1+y*B2
         
         #V is split into three
-        Vs  = self.sigma/self.a*(duration-B1-self.a/2*np.square(B1))
-        Vs += self.eta  /self.b*(duration-B2-self.b/2*np.square(B2))
+        Vs  = np.square(self.sigma)/np.square(self.a)*(duration-B1-self.a/2*np.square(B1))
+        Vs += np.square(self.eta)  /np.square(self.b)*(duration-B2-self.b/2*np.square(B2))
         Vs += 2*self.sigma*self.eta*self.rho/self.a/self.b*(duration-B1-B2+B12)
 
         return np.exp(-initRate*duration-M+0.5*Vs)
+        # return np.exp(-M+0.5*Vs)
+
+    def expectedRate(self, duration, initRate=None):
+        pass
+    
+    def forward_rate(self, time, start, end, initRate=None):
+        if initRate==None: 
+            initRate = self.init
+
+        duration = end-start
+        if time>end:
+            return 0
+
+        return (self.ZCB(duration=start-time,time=time, initRate=initRate)/self.ZCB(duration=end-time, time=time, initRate=initRate)-1)/duration
