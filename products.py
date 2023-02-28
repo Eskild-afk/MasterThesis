@@ -2,22 +2,33 @@ import numpy as np
 from dynamics import *
 from helpers import *
 
-def parSwapRate(fixedSchedule:np.array, floatingSchedule:np.array, time:float, rate:float, model:Dynamic):
+def parSwapRate(time:float, fixedSchedule:np.array, floatingSchedule:np.array,  floatingRate:np.array, floatingTimeStamp:np.array, model:Dynamic):
     top = 0
     bot = 0
-
+    rate = floatingRate[np.where(floatingTimeStamp==time)][0]
     for j in range(1, len(floatingSchedule)):
         Tj  = floatingSchedule[j]   # T_j
         Tjm = floatingSchedule[j-1] # T_{j-1}
-        D = model.ZCB(duration=Tj, time=time, initRate=rate)
-        F = model.forward_rate(time=0, start=Tjm, end=Tj, initRate=rate)
-        top += D*F*(Tj-Tjm)
-    
+        if Tj >= time:
+            if Tjm <= time:
+                nt = find_nearest(floatingTimeStamp, Tjm)  #nearest time (by construction it should be exactly equal but decimals and such can fuck it up)
+                rjm = floatingRate[np.where(floatingTimeStamp==nt)][0]   #rate at time Tjm
+                F = (1/model.ZCB(duration=Tj-Tjm, initRate=rjm)-1)/(Tj-Tjm) # ZCB functionen er ændret så den tager duration, time og initRate
+
+            else: 
+                F = model.forward_rate(time=time, start=Tjm, end=Tj, initRate=rate)
+
+            D = model.ZCB(duration=Tj-time, initRate=rate)
+            top += D*F*(Tj-Tjm)
+        
     for i in range(1, len(fixedSchedule)):
         Si  = fixedSchedule[i]   # S_j
         Sim = fixedSchedule[i-1] # S_{j-1}
-        D = model.ZCB(duration=Si, time=time, initRate=rate)
-        bot += D*(Si-Sim)
+
+        if Si >= time:
+            D = model.ZCB(duration=Si-time, initRate=rate)
+            bot += D*(Si-Sim)
+
     return top/bot
 
 
@@ -75,5 +86,22 @@ def payerSwap(time:float, fixedSchedule:np.array, floatingSchedule:np.array, fix
     
     return floatingPart - fixedPart
 
-def payerSwaption(time:float, fixedSchedule):
-    pass
+def payerSwaption(time:float, expiry:float, fixedSchedule: np.array, floatingSchedule: np.array, fixedRate:float, floatingRate:np.array, floatingTimeStamp:np.array, model:Dynamic):
+    '''
+    '''
+    PSR = parSwapRate(expiry, fixedSchedule, floatingSchedule, floatingRate, floatingTimeStamp, model)
+    A = 0
+    r = floatingRate[np.where(floatingTimeStamp==time)][0]
+    if time <= expiry:
+        for i in range(1, len(fixedSchedule)):
+            Si  = fixedSchedule[i]   # S_j
+            Sim = fixedSchedule[i-1] # S_{j-1}
+
+            if Si >= time:
+                D = model.ZCB(duration=Si-time, time=time, initRate=r)
+                A += D*(Si-Sim)
+        return A*np.maximum(PSR-fixedRate,0)
+    
+    else:
+
+        return payerSwap(time, fixedSchedule, floatingSchedule, fixedRate, floatingRate, floatingTimeStamp, model)
