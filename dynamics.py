@@ -1,5 +1,5 @@
 import numpy as np
-
+from scipy import stats, optimize
 class Dynamic:
     '''
     Parent class for dynamics
@@ -50,7 +50,16 @@ class Vasicek(Dynamic):
         self.vol    = volatility
 
     def oneStep(self, stepfrom, stepsize):
-        return stepfrom+(self.mean+self.rev*stepfrom)*stepsize+self.vol*np.sqrt(stepsize)*np.random.normal(0,1)
+        return stepfrom+(self.mean-self.rev*stepfrom)*stepsize+self.vol*np.sqrt(stepsize)*np.random.normal(0,1)
+
+    def B(self, duration):
+        return (1-np.exp(-self.rev*(duration)))/self.rev
+
+    def A(self, duration):
+        sigma = self.vol
+        b     = self.mean
+        beta  = self.rev
+        return (np.square(sigma)/2/np.square(beta)-b/beta)*(self.B(duration)-(duration))+np.square(sigma)/4/beta*np.square(self.B(duration))
 
     def ZCB(self, duration, time=None, initRate=None):
         if duration == 0:
@@ -59,13 +68,9 @@ class Vasicek(Dynamic):
         if initRate==None: 
             initRate = self.init
         
-        B = 1/self.rev*(np.exp(self.rev*duration)-1)
+        B = self.B(duration)
         
-        firstpart = (np.square(self.vol)*(4*np.exp(self.rev*duration)-np.exp(2*self.rev*duration)-2*self.rev*duration-3))/(4*np.power(self.rev,3))
-        
-        secondpart = self.mean*(np.exp(self.rev*duration)-1-self.rev*duration)/(np.square(self.rev))
-        
-        A = firstpart+secondpart
+        A = self.A(duration)
 
         return np.exp(-A-B*initRate)
     
@@ -73,7 +78,7 @@ class Vasicek(Dynamic):
         if initRate==None: 
             initRate = self.init
         
-        return initRate*np.exp(self.rev*duration)+self.mean/self.rev*(np.exp(self.rev*duration)-1)
+        return initRate*np.exp(-self.rev*duration)+self.mean/self.rev*(1-np.exp(-self.rev*duration))
     
     def forward_rate(self, time, start, end, initRate=None):
         if initRate==None: 
@@ -84,6 +89,67 @@ class Vasicek(Dynamic):
             return 0
 
         return (self.ZCB(duration=start-time,initRate=initRate)/self.ZCB(duration=end-time,initRate=initRate)-1)/duration
+    
+    def M(self, s, t, fwd):
+        sigma = self.vol
+        b     = self.mean
+        beta  = self.rev
+
+        return (b-np.square(sigma)/beta)*self.B(fwd-t)+np.square(sigma)/beta*self.B(2*t-2*s)*np.exp(-beta*(fwd-t))
+
+    def meanFwd(self, s,t, fwd):
+        rs      = self.init
+        beta    = self.rev
+
+        return rs*np.exp(-beta*(t-s))+self.M(s,t,fwd)
+    
+    def varFwd(self, s,t):
+        sigma   = self.vol
+        return np.square(sigma)/2*self.B(2*t-2*s)
+
+    def rbarhelper(self, rbar, fixedSchedule, fixedRate):
+        sum = 0
+        for i in fixedSchedule[1::]:
+            c=fixedRate
+            
+            if i == fixedSchedule[-1]:
+                c+=1    
+            
+            sum += c*self.ZCB(i, time=0, initRate=rbar)
+        return 1-sum
+
+
+    def PswaptionSC(self, expiry, fixedSchedule, fixedRate):
+        fixedSchedule = fixedSchedule[fixedSchedule>=expiry]
+        TR=fixedSchedule[0]
+        
+        #Mean and variance under expiry forward measure
+        fwdMean = self.meanFwd(0, TR, expiry)
+        fwdVar  = self.varFwd(0, TR)
+
+        #finding rBar
+        rbar    = optimize.fsolve(func=lambda r: self.rbarhelper(rbar=r, fixedSchedule=fixedSchedule, fixedRate=fixedRate), x0=self.init)[0]
+
+        #Prob that brackets are po
+        prob    = stats.norm.cdf((fwdMean-rbar)/fwdVar)
+
+        return prob*(self.ZCB(TR)+self.rbarhelper(self.init, fixedSchedule, fixedRate)-1)
+    
+    def RswaptionSC(self, expiry, fixedSchedule, fixedRate):
+        fixedSchedule = fixedSchedule[fixedSchedule>=expiry]
+        TR=fixedSchedule[0]
+        
+        #Mean and variance under expiry forward measure
+        fwdMean = self.meanFwd(0, TR, expiry)
+        fwdVar  = self.varFwd(0, TR)
+
+        #finding rBar
+        rbar    = optimize.fsolve(func=lambda r: self.rbarhelper(rbar=r, fixedSchedule=fixedSchedule, fixedRate=fixedRate), x0=self.init)[0]
+
+        prob    = stats.norm.cdf((rbar-fwdMean)/fwdVar)
+
+        return prob*(self.ZCB(TR)+self.rbarhelper(self.init, fixedSchedule, fixedRate)-1)
+
 
 
 
