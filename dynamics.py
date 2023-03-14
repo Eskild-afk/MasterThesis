@@ -118,22 +118,49 @@ class Vasicek(Dynamic):
             sum += c*self.ZCB(i, time=0, initRate=rbar)
         return 1-sum
 
+    def ZCBPut(self, time, T, S, Strike):
+        sigma   = self.vol
+        beta    = self.rev
+        # Taken from Brigo (3.41)
+        sigmap = sigma*np.sqrt((1-np.exp(-2*beta*(T-time)))/(2*beta))*self.B(S-T)
+        h = np.log(self.ZCB(S-time)/self.ZCB(T-time)/Strike)/sigmap+sigmap/2
+        
+        return Strike*self.ZCB(T-time)*stats.norm.cdf(-h+sigmap)-self.ZCB(S-time)*stats.norm.cdf(-h)
+
 
     def PswaptionSC(self, expiry, fixedSchedule, fixedRate):
-        fixedSchedule = fixedSchedule[fixedSchedule>=expiry]
-        TR=fixedSchedule[0]
+        fixedSchedule   = fixedSchedule[fixedSchedule>=expiry]
+        TR              = fixedSchedule[0]
         
-        #Mean and variance under expiry forward measure
-        fwdMean = self.meanFwd(0, TR, expiry)
-        fwdVar  = self.varFwd(0, TR)
-
         #finding rBar
         rbar    = optimize.fsolve(func=lambda r: self.rbarhelper(rbar=r, fixedSchedule=fixedSchedule, fixedRate=fixedRate), x0=self.init)[0]
 
-        #Prob that brackets are po
-        prob    = stats.norm.cdf((fwdMean-rbar)/fwdVar)
+        sum = 0
 
-        return prob*(self.ZCB(TR)+self.rbarhelper(self.init, fixedSchedule, fixedRate)-1)
+        for Si in fixedSchedule:
+            ci = fixedRate
+            if Si == fixedSchedule[-1]:
+                ci += 1
+            Xi = np.exp(-self.A(Si-TR)-self.B(Si-TR)*rbar)
+
+            if ci*self.ZCBPut(0,TR, Si, Xi)==ci*self.ZCBPut(0,TR, Si, Xi):
+                sum += ci*self.ZCBPut(0,TR, Si, Xi)
+
+        return sum
+
+
+
+        # #Mean and variance under expiry forward measure
+        # fwdMean = self.meanFwd(0, TR, expiry)
+        # fwdVar  = self.varFwd(0, TR)
+
+        # #finding rBar
+        # rbar    = optimize.fsolve(func=lambda r: self.rbarhelper(rbar=r, fixedSchedule=fixedSchedule, fixedRate=fixedRate), x0=self.init)[0]
+
+        # #Prob that brackets are po
+        # prob    = stats.norm.cdf((fwdMean-rbar)/fwdVar)
+
+        # return prob*(self.ZCB(TR)+self.rbarhelper(self.init, fixedSchedule, fixedRate)-1)
     
     def RswaptionSC(self, expiry, fixedSchedule, fixedRate):
         fixedSchedule = fixedSchedule[fixedSchedule>=expiry]
@@ -148,7 +175,7 @@ class Vasicek(Dynamic):
 
         prob    = stats.norm.cdf((rbar-fwdMean)/fwdVar)
 
-        return prob*(self.ZCB(TR)+self.rbarhelper(self.init, fixedSchedule, fixedRate)-1)
+        return prob*(self.rbarhelper(self.init, fixedSchedule, fixedRate)-1-self.ZCB(TR))
 
 
 
