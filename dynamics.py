@@ -107,16 +107,21 @@ class Vasicek(Dynamic):
         sigma   = self.vol
         return np.square(sigma)/2*self.B(2*t-2*s)
 
-    def rbarhelper(self, rbar, fixedSchedule, fixedRate):
+    def rbarhelper(self, t, rbar, fixedSchedule, floatingSchedule, fixedRate):
         sum = 0
+        if len(floatingSchedule) == 0:
+            TR=10
+        else:
+            TR=floatingSchedule[0]
         for i in fixedSchedule[1::]:
             c=fixedRate
             
             if i == fixedSchedule[-1]:
                 c+=1    
-            
-            sum += c*self.ZCB(i, time=0, initRate=rbar)
-        return 1-sum
+        
+            sum += c*self.ZCB(i-t, time=t, initRate=rbar)
+        D = self.ZCB(TR-t, initRate = rbar)
+        return D-sum
 
     def ZCBPut(self, time, T, S, Strike):
         sigma   = self.vol
@@ -129,24 +134,28 @@ class Vasicek(Dynamic):
 
 
     def PswaptionSC(self, time, expiry, fixedSchedule, floatingSchedule, fixedRate):
-        floatingSchedule = floatingSchedule[floatingSchedule>=expiry]
-        TR=floatingSchedule[0]
+        
+        floatingSchedule = floatingSchedule[floatingSchedule>expiry-0.5]
+        if len(floatingSchedule) == 0:
+            TR=10
+        else:
+            TR=floatingSchedule[0]
 
-        fixedSchedule = fixedSchedule[fixedSchedule>=expiry]
+        fixedSchedule = fixedSchedule[fixedSchedule>expiry-1]
         
         #finding rBar
-        rbar    = optimize.fsolve(func=lambda r: self.rbarhelper(rbar=r, fixedSchedule=fixedSchedule, fixedRate=fixedRate), x0=self.init)[0]
-
+        rbar   = optimize.fsolve(func=lambda r: self.rbarhelper(t=expiry, rbar=r, fixedSchedule=fixedSchedule, floatingSchedule = floatingSchedule, fixedRate=fixedRate), x0=self.init)[0]
         sum = 0
 
-        for Si in fixedSchedule:
+        for Si in fixedSchedule[1::]:
             ci = fixedRate
             if Si == fixedSchedule[-1]:
                 ci += 1
-            Xi = np.exp(-self.A(Si-TR)-self.B(Si-TR)*rbar)
 
-            if ci*self.ZCBPut(time, TR, Si, Xi)==ci*self.ZCBPut(0,TR, Si, Xi):
-                sum += ci*self.ZCBPut(time, TR, Si, Xi)
+            Xi = np.exp(-self.A(Si-expiry)-self.B(Si-expiry)*rbar)
+
+            if ci*self.ZCBPut(time, expiry, Si, Xi)==ci*self.ZCBPut(0, expiry, Si, Xi):
+                sum += ci*self.ZCBPut(time, expiry, Si, Xi)
 
         return sum
 
