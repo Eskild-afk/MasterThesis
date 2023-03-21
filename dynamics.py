@@ -90,6 +90,21 @@ class Vasicek(Dynamic):
 
         return (self.ZCB(duration=start-time,initRate=initRate)/self.ZCB(duration=end-time,initRate=initRate)-1)/duration
     
+    def mean(self, duration, initRate=None):
+        if initRate==None: 
+            initRate = self.init
+
+        beta    = self.rev
+        b       = self.mean
+
+        return initRate*np.exp(-beta*duration)+b/beta*(1-np.exp(-beta*duration))
+    
+    def variance(self, duration):
+        sigma   = self.vol
+        beta    = self.rev
+
+        return np.square(sigma)/2/beta*(1-np.exp(-2*beta*duration))
+
     def M(self, s, t, fwd):
         sigma = self.vol
         b     = self.mean
@@ -104,10 +119,9 @@ class Vasicek(Dynamic):
         return rs*np.exp(-beta*(t-s))+self.M(s,t,fwd)
     
     def varFwd(self, s,t):
-        sigma   = self.vol
-        return np.square(sigma)/2*self.B(2*t-2*s)
+        return self.variance(t-s)
 
-    def rbarhelper(self, rbar, fixedSchedule, fixedRate):
+    def rbarhelper(self, rbar, fixedSchedule, fixedRate, expiry=0):
         sum = 0
         for i in fixedSchedule[1::]:
             c=fixedRate
@@ -115,8 +129,9 @@ class Vasicek(Dynamic):
             if i == fixedSchedule[-1]:
                 c+=1    
             
-            sum += c*self.ZCB(i, time=0, initRate=rbar)
-        return 1-sum
+            sum += c*self.ZCB(i-expiry, time=0, initRate=rbar)
+        D = self.ZCB(duration=fixedSchedule[0]-expiry, time=None, initRate=rbar)
+        return D-sum
 
     def ZCBPut(self, time, T, S, Strike):
         sigma   = self.vol
@@ -135,11 +150,11 @@ class Vasicek(Dynamic):
         fixedSchedule = fixedSchedule[fixedSchedule>=expiry]
         
         #finding rBar
-        rbar    = optimize.fsolve(func=lambda r: self.rbarhelper(rbar=r, fixedSchedule=fixedSchedule, fixedRate=fixedRate), x0=self.init)[0]
-
+        rbar    = optimize.fsolve(func=lambda r: self.rbarhelper(rbar=r, fixedSchedule=fixedSchedule, fixedRate=fixedRate, expiry=expiry), x0=self.init)[0]
         sum = 0
 
-        for Si in fixedSchedule:
+        for Si in fixedSchedule[1::]:
+            print(Si)
             ci = fixedRate
             if Si == fixedSchedule[-1]:
                 ci += 1
@@ -165,10 +180,10 @@ class Vasicek(Dynamic):
         # return prob*(self.ZCB(TR)+self.rbarhelper(self.init, fixedSchedule, fixedRate)-1)
     
     def RswaptionSC(self, expiry, fixedSchedule, floatingSchedule, fixedRate):
-        floatingSchedule = floatingSchedule[floatingSchedule>=expiry]
+        floatingSchedule = floatingSchedule[floatingSchedule>expiry]
         TR=floatingSchedule[0]
 
-        fixedSchedule = fixedSchedule[fixedSchedule>=expiry]
+        fixedSchedule = fixedSchedule[fixedSchedule>expiry]
         
         #Mean and variance under expiry forward measure
         fwdMean = self.meanFwd(0, TR, expiry)
