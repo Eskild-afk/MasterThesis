@@ -1,5 +1,6 @@
 import numpy as np
-from scipy import stats, optimize
+from scipy import stats, optimize, integrate
+from scipy.stats import norm, multivariate_normal
 class Dynamic:
     '''
     Parent class for dynamics
@@ -99,11 +100,11 @@ class Vasicek(Dynamic):
 
         return initRate*np.exp(-beta*duration)+b/beta*(1-np.exp(-beta*duration))
     
-    def variance(self, duration):
+    def variance(self, s,t):
         sigma   = self.vol
         beta    = self.rev
 
-        return np.square(sigma)/2/beta*(1-np.exp(-2*beta*duration))
+        return np.square(sigma)/2/beta*(1-np.exp(-2*beta*(t-s)))
 
     def M(self, s, t, fwd):
         sigma = self.vol
@@ -119,7 +120,15 @@ class Vasicek(Dynamic):
         return rs*np.exp(-beta*(t-s))+self.M(s,t,fwd)
     
     def varFwd(self, s,t):
-        return self.variance(t-s)
+        return self.variance(s,t)
+    
+    def cov(self,s,t):
+        sigma = self.vol
+        beta  = self.rev
+        return np.square(sigma)*np.exp(-beta*(s+t))*(np.exp(2*beta*np.minimum(s,t))-1)/(2*beta)
+
+    def corr(self,s,t):
+        return self.cov(s,t)/np.sqrt(self.variance(0,s)*self.variance(0,t))
 
     def rbarhelper(self, t, rbar, fixedSchedule, floatingSchedule, fixedRate):
         sum = 0
@@ -146,66 +155,87 @@ class Vasicek(Dynamic):
         
         return Strike*self.ZCB(T-time)*stats.norm.cdf(-h+sigmap)-self.ZCB(S-time)*stats.norm.cdf(-h)
 
-
-    def PswaptionSC(self, time, expiry, fixedSchedule, floatingSchedule, fixedRate):
+    def swap(self, time, fixedSchedule, floatingSchedule, fixedRate, initRate=None):
+        TR = floatingSchedule[0]
+        if time > TR:
+            print("Time is after first fixed payment")
+            return None
         
-        floatingSchedule = floatingSchedule[floatingSchedule>expiry-0.5]
-        if len(floatingSchedule) == 0:
-            TR=10
-        else:
-            TR=floatingSchedule[0]
-
-        fixedSchedule = fixedSchedule[fixedSchedule>expiry-1]
-        
-        #finding rBar
-        rbar   = optimize.fsolve(func=lambda r: self.rbarhelper(t=expiry, rbar=r, fixedSchedule=fixedSchedule, floatingSchedule = floatingSchedule, fixedRate=fixedRate), x0=self.init)[0]
         sum = 0
+        for i in fixedSchedule[1::]:
+            c=fixedRate
+            if i == fixedSchedule[-1]:
+                c+=1
+            sum += c*self.ZCB(i-time, time=time, initRate=initRate)
+        return self.ZCB(TR-time)-sum
 
-        for Si in fixedSchedule[1::]:
-            ci = fixedRate
-            if Si == fixedSchedule[-1]:
-                ci += 1
-
-            Xi = np.exp(-self.A(Si-expiry)-self.B(Si-expiry)*rbar)
-
-            if ci*self.ZCBPut(time, expiry, Si, Xi)==ci*self.ZCBPut(0, expiry, Si, Xi):
-                sum += ci*self.ZCBPut(time, expiry, Si, Xi)
-
-        return sum
-
-
-
-        # #Mean and variance under expiry forward measure
-        # fwdMean = self.meanFwd(0, TR, expiry)
-        # fwdVar  = self.varFwd(0, TR)
-
-        # #finding rBar
-        # rbar    = optimize.fsolve(func=lambda r: self.rbarhelper(rbar=r, fixedSchedule=fixedSchedule, fixedRate=fixedRate), x0=self.init)[0]
-
-        # #Prob that brackets are po
-        # prob    = stats.norm.cdf((fwdMean-rbar)/fwdVar)
-
-        # return prob*(self.ZCB(TR)+self.rbarhelper(self.init, fixedSchedule, fixedRate)-1)
-    
-    def RswaptionSC(self, expiry, fixedSchedule, floatingSchedule, fixedRate):
-        floatingSchedule = floatingSchedule[floatingSchedule>expiry]
-        TR=floatingSchedule[0]
-
-        fixedSchedule = fixedSchedule[fixedSchedule>expiry]
+    def swaptionGivenRates(self,expiryRate,firstResetRate,expiry,fixedSchedule,floatSchedule, fixedRate, payer=True):
+        if payer:
+            w=1
+        else:
+            w=-1 
+        TR =   floatSchedule[floatSchedule>=expiry-0.5][0] #First reset date
+        TRp1 = floatSchedule[floatSchedule>=expiry-0.5][1] #Second reset date
+        #Fixed payment dates after first reset date (no fixed payment on the first reset)
+        Si = fixedSchedule[fixedSchedule>TR]               
+        cisum = 0
+        for i in Si:
+            c = fixedRate
+            if i == Si[-1]:
+                c+=1
+            cisum += c*self.ZCB(i-expiry,initRate=expiryRate)
         
-        #Mean and variance under expiry forward measure
-        fwdMean = self.meanFwd(0, TR, expiry)
-        fwdVar  = self.varFwd(0, TR)
+        if (TR==0) and  (expiry>TR):
+            mean    = self.meanFwd(0,expiry,expiry)
+            var     = self.varFwd(0,expiry)
+            result  = self.ZCB(TRp1-expiry,initRate=expiryRate)/self.ZCB(TRp1-TR, initRate=self.init)-cisum
+            prob    = norm.pdf(expiryRate,mean,np.sqrt(var))
 
-        #finding rBar
-        rbar    = optimize.fsolve(func=lambda r: self.rbarhelper(rbar=r, fixedSchedule=fixedSchedule, fixedRate=fixedRate), x0=self.init)[0]
+        elif expiry   <=  TR:
+            mean    = self.meanFwd(0,TR,expiry)
+            var     = self.varFwd(0,TR)
+            result  = 1/self.ZCB(TRp1-TR, initRate=expiryRate)-cisum
+            prob    = norm.pdf(expiryRate,mean,np.sqrt(var))
+        
+        elif expiry>TR:
+            xy=np.array([expiryRate,firstResetRate])
+            meanM   = np.array([self.meanFwd(0,TR,expiry),self.meanFwd(0,TRp1,expiry)])
+            covM    = np.array([[self.varFwd(0,TR),self.cov(TR,expiry)],[self.cov(expiry,TR),self.varFwd(0,expiry)]])
+            result  = self.ZCB(TRp1-expiry,initRate=expiryRate)/self.ZCB(TRp1-TR, initRate=firstResetRate)-cisum
+            prob    = multivariate_normal.pdf(xy, mean=meanM, cov=covM)
 
-        prob    = stats.norm.cdf((rbar-fwdMean)/fwdVar)
+        return np.maximum(w*result,0)*prob
+            
+    def swaptionIntegration(self,expiry,fixedSchedule,floatSchedule, fixedRate, payer=True):
+        '''
+        This function requires that the first reset date is after the current time t
+        and if t=TR then it requires that expiry>=TRp1
+        '''
+        
+        TR = floatSchedule[floatSchedule>=expiry-0.5][0] #First reset date
+        TRp1 = floatSchedule[floatSchedule>=expiry-0.5][1]
+        if (TR==0) and (expiry>TR):
+            toIntegrate = lambda x: self.swaptionGivenRates(x,self.init,expiry,fixedSchedule,floatSchedule, fixedRate, payer)
+            expirySd      = 5*np.sqrt(self.varFwd(0,expiry))
+            return self.ZCB(expiry)*integrate.quad(toIntegrate, -5*expirySd, 5*expirySd)[0]
+        elif expiry >   TR:     #Two rates case (double integral)
+            toIntegrate = lambda x,y: self.swaptionGivenRates(x,y,expiry,fixedSchedule,floatSchedule, fixedRate, payer)
+            #Will use 5 standard deviations to integrate over since this capture approxx 99% of the distribution
+            resetSd       = 5*np.sqrt(self.varFwd(0,TR))
+            expirySd      = 5*np.sqrt(self.varFwd(0,expiry))
+            return self.ZCB(expiry)*integrate.dblquad(toIntegrate, -1, 1, -1, 1)[0]
+        else:
+            print('Error: Expiry date is before first reset date')
+            return None
+        pass
 
-        return prob*(self.rbarhelper(self.init, fixedSchedule, fixedRate)-1-self.ZCB(TR))
-
-
-
+    def swaption(self, expiry, fixedSchedule, floatSchedule, fixedRate, payer=True):
+        TR = floatSchedule[floatSchedule>=expiry-0.5][0] #First reset date
+        TRp1 = floatSchedule[floatSchedule>=expiry-0.5][0] #First reset date
+        if (TR==0) and (TR==expiry):
+            return np.maximum(self.swap(0, fixedSchedule, floatSchedule, fixedRate),0)
+        else:
+            return self.swaptionIntegration(expiry,fixedSchedule,floatSchedule, fixedRate, payer)
 
 class G2PP(Dynamic):
     '''
