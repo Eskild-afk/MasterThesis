@@ -14,13 +14,13 @@ class Dynamic:
         self.init = initial
 
     #All dynamics should be able be simulated with a path
-    def create_path(self, stepsize:float, duration:float, seed=None)->np.array:
+    def create_path(self, stepsize:float, duration:float, fwd=0, seed=None)->np.array:
         steps = int(duration/stepsize)
         path = [self.init]
         time = [0]
         np.random.seed(seed)
         for i in range(steps):
-            path.append((self.oneStep(path[i], stepsize)))
+            path.append((self.oneStep(path[i], stepsize, fwd)))
             time.append((i+1)*stepsize)
 
         return np.array(time), np.array(path)
@@ -50,8 +50,8 @@ class Vasicek(Dynamic):
         self.rev    = reversion
         self.vol    = volatility
 
-    def oneStep(self, stepfrom, stepsize):
-        return stepfrom+(self.mean-self.rev*stepfrom)*stepsize+self.vol*np.sqrt(stepsize)*np.random.normal(0,1)
+    def oneStep(self, stepfrom, stepsize, fwd=0):
+        return stepfrom+(self.mean-self.rev*stepfrom)*stepsize+self.vol*np.sqrt(stepsize)*np.random.normal(0,1)-np.square(self.vol)*self.B(fwd-0)
 
     def B(self, duration):
         return (1-np.exp(-self.rev*(duration)))/self.rev
@@ -75,7 +75,7 @@ class Vasicek(Dynamic):
 
         return np.exp(-A-B*initRate)
     
-    def expectedRate(self, duration, initRate=None):
+    def expectedRate(self, duration, fwd=0, initRate=None):
         if initRate==None: 
             initRate = self.init
         
@@ -91,7 +91,7 @@ class Vasicek(Dynamic):
 
         return (self.ZCB(duration=start-time,initRate=initRate)/self.ZCB(duration=end-time,initRate=initRate)-1)/duration
     
-    def mean(self, duration, initRate=None):
+    def meanR(self, duration, initRate=None):
         if initRate==None: 
             initRate = self.init
 
@@ -130,7 +130,7 @@ class Vasicek(Dynamic):
     def corr(self,s,t):
         return self.cov(s,t)/np.sqrt(self.variance(0,s)*self.variance(0,t))
 
-    def rbarhelper(self, t, rbar, fixedSchedule, floatingSchedule, fixedRate):
+    def rbarhelper(self, t, expiry, rbar, fixedSchedule, floatingSchedule, fixedRate):
         sum = 0
         if len(floatingSchedule) == 0:
             TR=10
@@ -143,7 +143,7 @@ class Vasicek(Dynamic):
                 c+=1    
         
             sum += c*self.ZCB(i-t, time=t, initRate=rbar)
-        D = self.ZCB(TR-t, initRate = rbar)
+        D = self.ZCB(expiry-t, initRate = rbar)
         return D-sum
 
     def ZCBPut(self, time, T, S, Strike):
@@ -198,9 +198,9 @@ class Vasicek(Dynamic):
             prob    = norm.pdf(expiryRate,mean,np.sqrt(var))
         
         elif expiry>TR:
-            xy=np.array([expiryRate,firstResetRate])
+            xy=np.array([firstResetRate,expiryRate])
             meanM   = np.array([self.meanFwd(0,TR,expiry),self.meanFwd(0,TRp1,expiry)])
-            covM    = np.array([[self.varFwd(0,TR),self.cov(TR,expiry)],[self.cov(expiry,TR),self.varFwd(0,expiry)]])
+            covM    = np.array([[self.varFwd(0,TR), self.cov(TR,expiry)],[self.cov(expiry,TR),self.varFwd(0,expiry)]])
             result  = self.ZCB(TRp1-expiry,initRate=expiryRate)/self.ZCB(TRp1-TR, initRate=firstResetRate)-cisum
             prob    = multivariate_normal.pdf(xy, mean=meanM, cov=covM)
 
@@ -214,7 +214,10 @@ class Vasicek(Dynamic):
         
         TR = floatSchedule[floatSchedule>=expiry-0.5][0] #First reset date
         TRp1 = floatSchedule[floatSchedule>=expiry-0.5][1]
-        if (TR==0) and (expiry>TR):
+        if expiry<TR:
+            
+            pass
+        elif (TR==0) and (expiry>TR):
             toIntegrate = lambda x: self.swaptionGivenRates(x,self.init,expiry,fixedSchedule,floatSchedule, fixedRate, payer)
             expirySd      = 5*np.sqrt(self.varFwd(0,expiry))
             return self.ZCB(expiry)*integrate.quad(toIntegrate, -5*expirySd, 5*expirySd)[0]
@@ -223,19 +226,47 @@ class Vasicek(Dynamic):
             #Will use 5 standard deviations to integrate over since this capture approxx 99% of the distribution
             resetSd       = 5*np.sqrt(self.varFwd(0,TR))
             expirySd      = 5*np.sqrt(self.varFwd(0,expiry))
-            return self.ZCB(expiry)*integrate.dblquad(toIntegrate, -1, 1, -1, 1)[0]
+            return self.ZCB(expiry)*integrate.dblquad(toIntegrate, -5*expirySd, 5*expirySd, -5*resetSd, 5*resetSd)[0]
         else:
             print('Error: Expiry date is before first reset date')
             return None
-        pass
 
     def swaption(self, expiry, fixedSchedule, floatSchedule, fixedRate, payer=True):
         TR = floatSchedule[floatSchedule>=expiry-0.5][0] #First reset date
-        TRp1 = floatSchedule[floatSchedule>=expiry-0.5][0] #First reset date
+        TRp1 = floatSchedule[floatSchedule>=expiry-0.5][1] #second reset date
         if (TR==0) and (TR==expiry):
             return np.maximum(self.swap(0, fixedSchedule, floatSchedule, fixedRate),0)
         else:
             return self.swaptionIntegration(expiry,fixedSchedule,floatSchedule, fixedRate, payer)
+        
+
+    def swaptionSC(self, time, expiry, fixedSchedule, floatingSchedule, fixedRate, payer=True):
+
+        floatingSchedule = floatingSchedule[floatingSchedule>expiry-0.5]
+        if len(floatingSchedule) == 0:
+            TR=10
+        else:
+            TR=floatingSchedule[0]
+
+        fixedSchedule = fixedSchedule[fixedSchedule>expiry-1]
+
+        #finding rBar
+        rbar   = optimize.fsolve(func=lambda r: self.rbarhelper(t=0, expiry=expiry, rbar=r, fixedSchedule=fixedSchedule, floatingSchedule = floatingSchedule, fixedRate=fixedRate), x0=self.init)[0]
+        sum = 0
+
+        for Si in fixedSchedule[1::]:
+            ci = fixedRate
+            if Si == fixedSchedule[-1]:
+                ci += 1
+
+            Xi = np.exp(-(self.A(Si-expiry)-self.A(TR-expiry))-(self.B(Si-expiry)-self.B(TR-expiry))*rbar)
+
+            if (ci*self.ZCBPut(time, expiry, Si, Xi)==ci*self.ZCBPut(0, expiry, Si, Xi)) and payer:
+                sum += ci*self.ZCBPut(time, expiry, Si, Xi)
+            else:
+                sum += ci*self.ZCBPut(time, expiry, Si, Xi) #skal være call
+
+        return sum
 
 class G2PP(Dynamic):
     '''
