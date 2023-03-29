@@ -51,7 +51,7 @@ class Vasicek(Dynamic):
         self.vol    = volatility
 
     def oneStep(self, stepfrom, stepsize, fwd=0):
-        return stepfrom+(self.mean-self.rev*stepfrom)*stepsize+self.vol*np.sqrt(stepsize)*np.random.normal(0,1)-np.square(self.vol)*self.B(fwd-0)
+        return stepfrom+(self.mean-self.rev*stepfrom)*stepsize+self.vol*np.sqrt(stepsize)*np.random.normal(0,1)-np.square(self.vol)*self.B(fwd-0)*stepsize
 
     def B(self, duration):
         return (1-np.exp(-self.rev*(duration)))/self.rev
@@ -142,19 +142,29 @@ class Vasicek(Dynamic):
             if i == fixedSchedule[-1]:
                 c+=1    
         
-            sum += c*self.ZCB(i-t, time=t, initRate=rbar)
+            sum += c*self.ZCB(i-expiry, time=t, initRate=rbar)
+
         D = self.ZCB(expiry-t, initRate = rbar)
-        return D-sum
+        return 1-sum
 
     def ZCBPut(self, time, T, S, Strike):
         sigma   = self.vol
         beta    = self.rev
         # Taken from Brigo (3.41)
         sigmap = sigma*np.sqrt((1-np.exp(-2*beta*(T-time)))/(2*beta))*self.B(S-T)
-        h = np.log(self.ZCB(S-time)/self.ZCB(T-time)/Strike)/sigmap+sigmap/2
-        
+        h = np.log(self.ZCB(S-time)/(self.ZCB(T-time)*Strike))/sigmap+sigmap/2
+        print(h, sigma, beta)
         return Strike*self.ZCB(T-time)*stats.norm.cdf(-h+sigmap)-self.ZCB(S-time)*stats.norm.cdf(-h)
 
+    def ZCBCall(self, time, T, S, Strike):
+        sigma   = self.vol
+        beta    = self.rev
+        # Taken from Brigo (3.41)
+        sigmap = sigma*np.sqrt((1-np.exp(-2*beta*(T-time)))/(2*beta))*self.B(S-T)
+        h = np.log(self.ZCB(S-time)/(self.ZCB(T-time)*Strike))/sigmap+sigmap/2
+        
+        return self.ZCB(S-time)*stats.norm.cdf(h)-Strike*self.ZCB(T-time)*stats.norm.cdf(h-sigmap)
+    
     def swap(self, time, fixedSchedule, floatingSchedule, fixedRate, initRate=None):
         TR = floatingSchedule[0]
         if time > TR:
@@ -259,12 +269,13 @@ class Vasicek(Dynamic):
             if Si == fixedSchedule[-1]:
                 ci += 1
 
-            Xi = np.exp(-(self.A(Si-expiry)-self.A(TR-expiry))-(self.B(Si-expiry)-self.B(TR-expiry))*rbar)
-
-            if (ci*self.ZCBPut(time, expiry, Si, Xi)==ci*self.ZCBPut(0, expiry, Si, Xi)) and payer:
-                sum += ci*self.ZCBPut(time, expiry, Si, Xi)
-            else:
-                sum += ci*self.ZCBPut(time, expiry, Si, Xi) #skal være call
+            Xi = self.ZCB(TR-time,time=0,initRate=rbar)
+            if payer:
+                put = self.ZCBPut(time, expiry, Si, Xi)
+                sum += ci*put
+            elif not payer:
+                call = self.ZCBCall(time, expiry, Si, Xi)
+                sum += ci*call
 
         return sum
 
