@@ -144,7 +144,7 @@ class Vasicek(Dynamic):
         
             sum += c*self.ZCB(i-expiry, time=t, initRate=rbar)
 
-        D = self.ZCB(expiry-t, initRate = rbar)
+        # D = self.ZCB(expiry-t, initRate = rbar)
         return 1-sum
 
     def ZCBPut(self, time, T, S, Strike):
@@ -152,8 +152,9 @@ class Vasicek(Dynamic):
         beta    = self.rev
         # Taken from Brigo (3.41)
         sigmap = sigma*np.sqrt((1-np.exp(-2*beta*(T-time)))/(2*beta))*self.B(S-T)
-        h = np.log(self.ZCB(S-time)/(self.ZCB(T-time)*Strike))/sigmap+sigmap/2
-        print(h, sigma, beta)
+        h = (np.log(self.ZCB(S-time))-np.log(self.ZCB(T-time)*Strike))/sigmap+sigmap/2
+        if (abs(h)>=1000) or np.isnan(h):
+            return 10000
         return Strike*self.ZCB(T-time)*stats.norm.cdf(-h+sigmap)-self.ZCB(S-time)*stats.norm.cdf(-h)
 
     def ZCBCall(self, time, T, S, Strike):
@@ -161,8 +162,9 @@ class Vasicek(Dynamic):
         beta    = self.rev
         # Taken from Brigo (3.41)
         sigmap = sigma*np.sqrt((1-np.exp(-2*beta*(T-time)))/(2*beta))*self.B(S-T)
-        h = np.log(self.ZCB(S-time)/(self.ZCB(T-time)*Strike))/sigmap+sigmap/2
-        
+        h = (np.log(self.ZCB(S-time))-np.log(self.ZCB(T-time)*Strike))/sigmap+sigmap/2
+        if (abs(h)>=1000) or np.isnan(h):
+            return 10000
         return self.ZCB(S-time)*stats.norm.cdf(h)-Strike*self.ZCB(T-time)*stats.norm.cdf(h-sigmap)
     
     def swap(self, time, fixedSchedule, floatingSchedule, fixedRate, initRate=None):
@@ -269,7 +271,7 @@ class Vasicek(Dynamic):
             if Si == fixedSchedule[-1]:
                 ci += 1
 
-            Xi = self.ZCB(TR-time,time=0,initRate=rbar)
+            Xi = self.ZCB(Si-expiry,time=0,initRate=rbar)
             if payer:
                 put = self.ZCBPut(time, expiry, Si, Xi)
                 sum += ci*put
