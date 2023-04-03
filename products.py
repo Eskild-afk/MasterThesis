@@ -69,7 +69,7 @@ def payerSwap(time:float, fixedSchedule:np.array, floatingSchedule:np.array, fix
                 F = (1/model.ZCB(duration=Tj-Tjm, time=time, initRate=rjm)-1)/(Tj-Tjm)
                 
             else:
-                F = model.forward_rate(time, Tjm, Tj, initRate=r)
+                F = model.forward_rate(time, Tjjm, T, initRate=r)
                 
             D = model.ZCB(duration=Tj-time, time=time, initRate=r)
             floatingPart += D*F*(Tj-Tjm)
