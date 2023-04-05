@@ -129,6 +129,9 @@ class HullWhite(Dynamic):
         return A
 
     def marketZCB(self, t):
+        '''
+        Calcculates the market ZCB price given an expiry t, i.e P(0,t)
+        '''
         zcb = np.exp(-self.yieldCurve(t)*t)
         return zcb
 
@@ -155,22 +158,24 @@ class HullWhite(Dynamic):
 
         return M
     
-    def ZCBoption(self, t,T,S,X, call=True):
+    def ZCBoption(self, t,T,S,X, initRate=None, call=True):
         '''
         Zero Coupon Bond option call eq(3.40)
         '''
+        if initRate==None:
+            initRate = self.init
 
         if call:
             w=1
         else:
             w=-1
         sigmap = self.vol*np.sqrt((1-np.exp(-2*self.rev*(T-t)))/(2*self.rev))*self.B(T,S)
-        h      = np.log(self.ZCB(t,S)/(self.ZCB(t,T)*X))/sigmap+sigmap/2
+        h      = np.log(self.ZCB(t,S,initRate)/(self.ZCB(t,T,initRate)*X))/sigmap+sigmap/2
 
         norm1 = norm.cdf(w*h)
         norm2 = norm.cdf(w*(h-sigmap))
 
-        return w*(self.ZCB(t,S)*norm1-self.ZCB(t,T)*X*norm2)
+        return w*(self.ZCB(t,S,initRate)*norm1-self.ZCB(t,T,initRate)*X*norm2)
     
     def swap(self, t, S:np.array, T:np.array, K, initRate=None, payer=True):
         '''
@@ -182,24 +187,24 @@ class HullWhite(Dynamic):
         '''
         if initRate==None:
             initRate = self.init
-        if t > T[0]:
-            print("t is after the first reset date")
-            return None
         
+        if t >= T[-1]:
+            return 0
+
         if payer:
             w=1
         else:
             w=-1
         
         # First reset date:
-        TR = T[0]
-        S  = S[S>=t]
+        T  = T[T>=t-0.5]
+        S  = S[S>=t-1]
 
         sum = 0
         for Si in S[1::]:
             sum += K*self.ZCB(t,Si,initRate)
         
-        return w*(self.ZCB(t,T[0])-self.ZCB(t,T[-1])-sum)
+        return w*(self.ZCB(t,T[0],initRate)-self.ZCB(t,T[-1],initRate)-sum)
     
 
     def rbarhelper(self, t, expiry, rbar, S, T, K):
@@ -219,8 +224,13 @@ class HullWhite(Dynamic):
         
         if initRate==None:
             initRate = self.init
+
+        if t>=Te:
+            return self.swap(t, S, T, K, initRate, payer)
+        
         if Te>= T[-1]:
             return 0
+        
         T = T[T>=Te-0.5]
         S = S[S>=Te-1]
         
@@ -246,8 +256,7 @@ class HullWhite(Dynamic):
                 ci += 1
 
             Xi = self.ZCB(Te, Si, initRate=rbar)
-            sum += ci*self.ZCBoption(t, Te, Si, Xi, call=(not payer))
-
-             
+            sum += ci*self.ZCBoption(t, Te, Si, Xi,initRate=initRate, call=(not payer))
+            
         return sum
 

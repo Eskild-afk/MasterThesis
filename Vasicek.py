@@ -131,7 +131,7 @@ class Vasicek(Dynamic):
         h = (np.log(self.ZCB(S-time))-np.log(self.ZCB(T-time)*Strike))/sigmap+sigmap/2
         if (abs(h)>=1000) or np.isnan(h):
             return 10000
-        return Strike*self.ZCB(T-time)*stats.norm.cdf(-h+sigmap)-self.ZCB(S-time)*stats.norm.cdf(-h)
+        return Strike*self.ZCB(T-time)*norm.cdf(-h+sigmap)-self.ZCB(S-time)*norm.cdf(-h)
 
     def ZCBCall(self, time, T, S, Strike):
         sigma   = self.vol
@@ -141,10 +141,13 @@ class Vasicek(Dynamic):
         h = (np.log(self.ZCB(S-time))-np.log(self.ZCB(T-time)*Strike))/sigmap+sigmap/2
         if (abs(h)>=1000) or np.isnan(h):
             return 10000
-        return self.ZCB(S-time)*stats.norm.cdf(h)-Strike*self.ZCB(T-time)*stats.norm.cdf(h-sigmap)
+        return self.ZCB(S-time)*norm.cdf(h)-Strike*self.ZCB(T-time)*norm.cdf(h-sigmap)
     
     def swap(self, time, fixedSchedule, floatingSchedule, fixedRate, initRate=None):
-        TR = floatingSchedule[0]
+        try:
+            TR = floatingSchedule[0]
+        except:
+            TR = floatingSchedule
         if time > TR:
             print("Time is after first fixed payment")
             return None
@@ -239,7 +242,7 @@ class Vasicek(Dynamic):
         fixedSchedule = fixedSchedule[fixedSchedule>expiry-1]
 
         #finding rBar
-        rbar   = optimize.fsolve(func=lambda r: self.rbarhelper(t=0, expiry=expiry, rbar=r, fixedSchedule=fixedSchedule, floatingSchedule = floatingSchedule, fixedRate=fixedRate), x0=self.init)[0]
+        rbar   = fsolve(func=lambda r: self.rbarhelper(t=0, expiry=expiry, rbar=r, fixedSchedule=fixedSchedule, floatingSchedule = floatingSchedule, fixedRate=fixedRate), x0=self.init)[0]
         sum = 0
 
         for Si in fixedSchedule[1::]:
