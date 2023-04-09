@@ -187,8 +187,9 @@ class HullWhite(Dynamic):
         '''
         if initRate==None:
             initRate = self.init
-        
-        if t >= T[-1]:
+
+        if t > T[0]:
+            print('Error, time is after first fixing')
             return 0
 
         if payer:
@@ -205,6 +206,26 @@ class HullWhite(Dynamic):
             sum += K*self.ZCB(t,Si,initRate)
         
         return w*(self.ZCB(t,T[0],initRate)-self.ZCB(t,T[-1],initRate)-sum)
+
+    def swapextended(self, t, S:np.array, T:np.array, K, floatRate, schedule, initRate=None, payer=True):
+        if t >= S[-1]:
+            return 0
+        else: 
+            TR = T[T >= t-0.5][0]
+            TRp1 = T[T >= t-0.5][1]
+            fixedleft = S[S >= t - 1]
+            rTR = floatRate[np.where(schedule>=TR)][0]
+            r = floatRate[np.where(schedule==t)][0]
+            sum = 0
+            for i in fixedleft[1::]:
+                c=K
+                if i == fixedleft[-1]:
+                    c+=1
+                sum += c*self.ZCB(t, i, initRate=r)
+            if t > TR:
+                return self.ZCB(t, TRp1, initRate=r)/self.ZCB(TR, TRp1, initRate=rTR)-sum
+            else: 
+                return self.ZCB(t, TR, initRate=r)-sum
     
 
     def __rbarhelper__(self, t, expiry, rbar, S, T, K, case):

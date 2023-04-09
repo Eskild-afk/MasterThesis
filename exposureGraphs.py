@@ -30,7 +30,7 @@ def neg (x):
     return np.minimum(x,0)
 
 #10Y Payer Swap Exposure
-sims = 10
+sims = 100
 if False:
     start = timer.time()
     time, float = HW.create_path(dt,10, seed=0)
@@ -39,7 +39,7 @@ if False:
 
     def worker(i):
         time, float = HW.create_path(dt,10, seed=i)
-        swap = np.array([HW.swap(x[0], S, T, K=K, initRate=x[1]) for x in np.array([time,float]).T])
+        swap = np.array([HW.swapextended(x[0], S, T, K=K, floatRate=float, schedule=time, initRate=x[1]) for x in np.array([time,float]).T])
         print('{:.2f}%'.format(round(i/sims*100, 2)), end='\r')
         return np.maximum(swap,0), np.minimum(swap,0)
 
@@ -95,7 +95,7 @@ if True:
 
     def worker(i):
         time, float = HW.create_path(dt,15, seed=i)
-        swap = np.array([HW.swap(x[0], S+5, T+5, K=K, initRate=x[1]) for x in np.array([time,float]).T])
+        swap = np.array([HW.swapextended(x[0], S+5, T+5, K=K, floatRate=float, schedule=time, initRate=x[1]) for x in np.array([time,float]).T])
         print('{:.2f}%'.format(round(i/sims*100, 2)), end='\r')
         return np.maximum(swap,0), np.minimum(swap,0)
 

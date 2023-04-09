@@ -3,6 +3,7 @@ import numpy as np
 from scipy.stats import norm, multivariate_normal
 from scipy.optimize import fsolve, minimize
 from scipy import integrate
+from helpers import *
 
 class Vasicek(Dynamic):
     '''
@@ -159,6 +160,26 @@ class Vasicek(Dynamic):
                 c+=1
             sum += c*self.ZCB(i-time, time=time, initRate=initRate)
         return self.ZCB(TR-time)-sum
+
+    def swapextended(self, time, fixedSchedule, floatingSchedule, fixedRate, timeschedule, floatingRate):
+        if time == floatingSchedule[-1]:
+            return 0
+        else: 
+            TR = floatingSchedule[floatingSchedule >= time-0.5][0]
+            TRp1 = floatingSchedule[floatingSchedule >= time-0.5][1]
+            fixedleft = fixedSchedule[fixedSchedule >= time - 1]
+            rTR = floatingRate[np.where(timeschedule==TR)][0]
+            r = floatingRate[np.where(timeschedule==time)][0]
+            sum = 0
+            for i in fixedleft[1::]:
+                c=fixedRate
+                if i == fixedleft[-1]:
+                    c+=1
+                sum += c*self.ZCB(i-time, time=time, initRate=r)
+            if time > TR:
+                return self.ZCB(TRp1-time, initRate=r)/self.ZCB(TRp1-TR, initRate=rTR)-sum
+            else: 
+                return self.ZCB(TR-time, initRate=r)-sum
 
     def swaptionGivenRates(self,expiryRate,firstResetRate,expiry,fixedSchedule,floatSchedule, fixedRate, payer=True):
         if payer:
