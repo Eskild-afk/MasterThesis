@@ -207,17 +207,26 @@ class HullWhite(Dynamic):
         return w*(self.ZCB(t,T[0],initRate)-self.ZCB(t,T[-1],initRate)-sum)
     
 
-    def rbarhelper(self, t, expiry, rbar, S, T, K):
+    def __rbarhelper__(self, t, expiry, rbar, S, T, K, case):
         sum = 0
 
-    
-        for Si in S[1::]:
-            c=K     
-            if Si == S[-1]:
-                c+=1    
-            
-            sum += c*self.ZCB(expiry, Si, initRate=rbar)
-        return 1-sum
+        if case == 1:
+            for Si in S[1::]:
+                c=K     
+                if Si == S[-1]:
+                    c+=1    
+                
+                sum += c*self.ZCB(expiry, Si, initRate=rbar)
+            return 1-sum
+
+        elif case == 2:
+            for Si in S[1::]:
+                c=K     
+                if Si == S[-1]:
+                    c+=1    
+                
+                sum += c*self.ZCB(expiry, Si, initRate=rbar)
+            return self.ZCB(expiry,T[1],rbar)/self.ZCB(T[0],T[1],self.init)-sum
     
 
     def swaption(self, t, Te, S:np.array, T:np.array, K, initRate=None, payer=True):
@@ -231,32 +240,46 @@ class HullWhite(Dynamic):
         if Te>= T[-1]:
             return 0
         
+        T0 = T[0]
+        T1 = T[1]
+
+        T = T[T>=t-0.5]
+        S = S[S>=t-1]
+
         T = T[T>=Te-0.5]
         S = S[S>=Te-1]
-        
-        firstResetFloat = T[0]
-        firstResetFix   = S[0]
-
-        T[0] = np.maximum(firstResetFloat, Te)
-        S[0] = np.maximum(firstResetFix, Te)
-
-        if t==S[0]:
-            return np.maximum(self.swap(t, S, T, K, initRate, payer),0)
-        
 
         sum = 0
-        # if Te <= S[0]:
-        rbar = fsolve(
-            func = lambda x : self.rbarhelper(t=t, expiry=Te, rbar=x, S=S, T=T, K=K),
-            x0  = initRate
-        )[0]
-        for Si in S[1::]:
-            ci = K
-            if Si == S[-1]:
-                ci += 1
 
-            Xi = self.ZCB(Te, Si, initRate=rbar)
-            sum += ci*self.ZCBoption(t, Te, Si, Xi,initRate=initRate, call=(not payer))
+        if Te == T[0]:
+            rbar = fsolve(
+                func = lambda x : self.__rbarhelper__(t=t, expiry=Te, rbar=x, S=S, T=T, K=K, case = 1),
+                x0  = initRate
+            )[0]
+            for Si in S[1::]:
+                ci = K
+                if Si == S[-1]:
+                    ci += 1
+
+                Xi = self.ZCB(Te, Si, initRate=rbar)
+                sum += ci*self.ZCBoption(t, Te, Si, Xi,initRate=rbar, call=(not payer))
+                
+            return sum
+        
+        elif (t == T0) and (T0 <= Te) and (Te <= T1):
             
-        return sum
+            rbar = fsolve(
+                func = lambda x : self.__rbarhelper__(t=t, expiry=Te, rbar=x, S=S, T=T, K=K, case = 2),
+                x0  = initRate
+            )[0]
+
+            for Si in S[1::]:
+                ci = K
+                if Si == S[-1]:
+                    ci += 1
+
+                Xi = self.ZCB(Te, Si, initRate=rbar)
+                sum += ci*self.ZCBoption(t, Te, Si, Xi,initRate=initRate, call=(not payer))
+            
+            return sum/self.ZCB(T[0],T[1],self.init)
 
