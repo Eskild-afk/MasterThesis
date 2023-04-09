@@ -30,8 +30,8 @@ def neg (x):
     return np.minimum(x,0)
 
 #10Y Payer Swap Exposure
-sims = 5000
-if True:
+sims = 100
+if False:
     start = timer.time()
     time, float = HW.create_path(dt,10, seed=0)
     K=fsolve(lambda x: HW.swap(0, S, T, x), x0=0.02)[0]
@@ -39,7 +39,7 @@ if True:
 
     def worker(i):
         time, float = HW.create_path(dt,10, seed=i)
-        swap = np.array([HW.swap(x[0], S, T, K=K, initRate=x[1]) for x in np.array([time,float]).T])
+        swap = np.array([HW.swapextended(x[0], S, T, K=K, floatRate=float, schedule=time, initRate=x[1]) for x in np.array([time,float]).T])
         print('{:.2f}%'.format(round(i/sims*100, 2)), end='\r')
         return np.maximum(swap,0), np.minimum(swap,0)
 
@@ -95,7 +95,7 @@ if True:
 
     def worker(i):
         time, float = HW.create_path(dt,15, seed=i)
-        swap = np.array([HW.swap(x[0], S+5, T+5, K=K, initRate=x[1]) for x in np.array([time,float]).T])
+        swap = np.array([HW.swapextended(x[0], S+5, T+5, K=K, floatRate=float, schedule=time, initRate=x[1]) for x in np.array([time,float]).T])
         print('{:.2f}%'.format(round(i/sims*100, 2)), end='\r')
         return np.maximum(swap,0), np.minimum(swap,0)
 
@@ -110,13 +110,12 @@ if True:
         NE += results[i][1]
     print(f'Finished sequential processing in {timer.time()-start:.2f} seconds')
     print('Creating graph')
-    time, float = HW.create_path(dt,10, seed=0)
     discounting = np.array([HW.marketZCB(t) for t in time])
 
     plt.rc('font',family='Times New Roman')
-    float_x = np.arange(0.5,10.5,0.5)
+    float_x = np.arange(0.5,15.5,0.5)
     float_y = np.full((len(float_x),), -5.6)
-    fix_x = np.arange(1,11)
+    fix_x = np.arange(1,16)
     fix_y = np.full(len(fix_x), -5)
 
     fig, ax = plt.subplots()
@@ -126,7 +125,7 @@ if True:
     plt.scatter(x=fix_x, y=fix_y, label = 'Fix', marker = 'o', s = 60, facecolors='none', edgecolors='r', linewidths=2)
     fig.set_size_inches(15,8)
     ax.set_ylim(-6,6)
-    ax.set_xlim(0,10.1)
+    ax.set_xlim(0,15.1)
     ax.set_xlabel('Time (Years)', fontname="Times New Roman", fontsize = 28)
     ax.set_ylabel('Exposure (% Notional)', fontname="Times New Roman", fontsize = 28)
     ax.tick_params(axis='x', direction='in', right = 'True', labelsize = 24, pad = 15)
