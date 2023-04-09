@@ -30,8 +30,8 @@ def neg (x):
     return np.minimum(x,0)
 
 #10Y Payer Swap Exposure
-sims = 5000
-if True:
+sims = 10
+if False:
     start = timer.time()
     time, float = HW.create_path(dt,10, seed=0)
     K=fsolve(lambda x: HW.swap(0, S, T, x), x0=0.02)[0]
@@ -54,7 +54,7 @@ if True:
         NE += results[i][1]
     print(f'Finished sequential processing in {timer.time()-start:.2f} seconds')
     print('Creating graph')
-    time, float = HW.create_path(dt,10, seed=0)
+
     discounting = np.array([HW.marketZCB(t) for t in time])
 
     plt.rc('font',family='Times New Roman')
@@ -86,7 +86,7 @@ if True:
     plt.savefig(f'./Graphs/Exposure_Plot_10YPayer_Swap_N={sims}_dt={int(1/dt)}.png', bbox_inches='tight')
     
     print( 'Finished creating graph')
-
+# 5Y10YForward Swap
 if True:
     start = timer.time()
     time, float = HW.create_path(dt,15, seed=0)
@@ -110,14 +110,13 @@ if True:
         NE += results[i][1]
     print(f'Finished sequential processing in {timer.time()-start:.2f} seconds')
     print('Creating graph')
-    time, float = HW.create_path(dt,10, seed=0)
     discounting = np.array([HW.marketZCB(t) for t in time])
 
     plt.rc('font',family='Times New Roman')
-    float_x = np.arange(0.5,10.5,0.5)
-    float_y = np.full((len(float_x),), -5.6)
-    fix_x = np.arange(1,11)
-    fix_y = np.full(len(fix_x), -5)
+    float_x = np.arange(0.5,15.5,0.5)
+    float_y = np.full((len(float_x),), -6.6)
+    fix_x = np.arange(1,16)
+    fix_y = np.full(len(fix_x), -6)
 
     fig, ax = plt.subplots()
     sns.lineplot(x=time, y=discounting*PE/sims*100, label = 'EPE')
@@ -125,8 +124,8 @@ if True:
     plt.scatter(x=float_x, y=float_y, label = 'Float', marker = 'x', s = 60, c='black', linewidths=2)
     plt.scatter(x=fix_x, y=fix_y, label = 'Fix', marker = 'o', s = 60, facecolors='none', edgecolors='r', linewidths=2)
     fig.set_size_inches(15,8)
-    ax.set_ylim(-6,6)
-    ax.set_xlim(0,10.1)
+    ax.set_ylim(-7,6)
+    ax.set_xlim(0,15.1)
     ax.set_xlabel('Time (Years)', fontname="Times New Roman", fontsize = 28)
     ax.set_ylabel('Exposure (% Notional)', fontname="Times New Roman", fontsize = 28)
     ax.tick_params(axis='x', direction='in', right = 'True', labelsize = 24, pad = 15)
@@ -135,7 +134,7 @@ if True:
     ax.yaxis.set_label_coords(-0.08, 0.5)
     ax.axhline(y=0, color='k', alpha = 0.25)
     plt.grid(alpha = 0.25)
-    plt.xticks(np.arange(0, 10.5, 0.5))
+    plt.xticks(np.arange(0, 16))
     plt.legend(frameon = False, fontsize = 18, loc='upper right')
     dump(PE/sims, f'./SimulationData/PE_5Y10Y_ForwardSwap_N={sims}_dt={int(1/dt)}.joblib')
     dump(NE/sims, f'./SimulationData/NE_5Y10Y_ForwardSwap_N={sims}_dt={int(1/dt)}.joblib')
@@ -144,7 +143,7 @@ if True:
     print( 'Finished creating graph')
 
 #5Y10Y Payer Swaption Exposure
-if False:
+if True:
     start = timer.time()
     time, float = HW.create_path(dt,15, seed=0)
     from joblib import Parallel, delayed, cpu_count
@@ -170,7 +169,6 @@ if False:
         NE += results[i][1]
     print(f'Finished sequential processing in {timer.time()-start:.2f} seconds')
     print('Creating graph')
-    time, float = HW.create_path(dt,15, seed=0)
     discounting = np.array([HW.marketZCB(t) for t in time])
 
     plt.rc('font',family='Times New Roman')
@@ -192,7 +190,7 @@ if False:
     ax.tick_params(axis='x', direction='in', right = 'True', labelsize = 24, pad = 15)
     ax.tick_params(axis='y', direction='in', top = 'True', labelsize = 24, pad = 15)
     ax.xaxis.set_label_coords(0.5, -0.1)
-    ax.yaxis.set_label_coords(-0.03, 0.5)
+    ax.yaxis.set_label_coords(-0.08, 0.5)
     ax.axhline(y=0, color='k', alpha = 0.25)
     plt.grid(alpha = 0.25)
     plt.xticks(np.arange(0, 16))
@@ -249,7 +247,6 @@ if False:
         NE += results[i][1]
     print(f'Finished sequential processing in {timer.time()-start:.2f} seconds')
     print('Creating graph')
-    time, float = HW.create_path(dt,10, seed=0)
     discounting = np.array([HW.marketZCB(t) for t in time])
 
     plt.rc('font',family='Times New Roman')
@@ -331,7 +328,6 @@ if False:
         NE += results[i][1]
     print(f'Finished sequential processing in {timer.time()-start:.2f} seconds')
     print('Creating graph')
-    time, float = HW.create_path(dt,15, seed=0)
     discounting = np.array([HW.marketZCB(t) for t in time])
 
     plt.rc('font',family='Times New Roman')
@@ -341,8 +337,8 @@ if False:
     fix_y = np.full(len(fix_x), -2)
 
     fig, ax = plt.subplots()
-    sns.lineplot(x=time, y=discounting*PE/sims*100, label = 'EPE')
-    sns.lineplot(x=time, y=discounting*NE/sims*100, label = 'ENE')
+    sns.lineplot(x=time, y=PE/sims*100, label = 'EPE')
+    sns.lineplot(x=time, y=NE/sims*100, label = 'ENE')
     plt.scatter(x=float_x, y=float_y, label = 'Float', marker = 'x', s = 60, c='black', linewidths=2)
     plt.scatter(x=fix_x, y=fix_y, label = 'Fix', marker = 'o', s = 60, facecolors='none', edgecolors='r', linewidths=2)
     fig.set_size_inches(15,8)
