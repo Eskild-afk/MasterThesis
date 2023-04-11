@@ -208,6 +208,9 @@ class HullWhite(Dynamic):
         return w*(self.ZCB(t,T[0],initRate)-self.ZCB(t,T[-1],initRate)-sum)
 
     def swapextended(self, t, S:np.array, T:np.array, K, floatRate, schedule, initRate=None, payer=True):
+        if initRate==None:
+            initRate = self.init
+        
         if t >= S[-1]:
             return 0
         else: 
@@ -250,13 +253,16 @@ class HullWhite(Dynamic):
             return self.ZCB(expiry,T[1],rbar)/self.ZCB(T[0],T[1],self.init)-sum
     
 
-    def swaption(self, t, Te, S:np.array, T:np.array, K, initRate=None, payer=True):
+    def swaption(self, t, Te, S:np.array, T:np.array, K, floatRate, schedule, initRate=None, payer=True):
         
         if initRate==None:
             initRate = self.init
 
         if t>=Te:
-            return self.swap(t, S, T, K, initRate, payer)
+            if t<=T[0]:
+                return self.swap(t, S, T, K, initRate, payer)
+            else:
+                return self.swapextended(t=t, S=S, T=T, K=K, initRate=initRate, payer=payer, floatRate=floatRate, schedule=schedule)
         
         if Te>= T[-1]:
             return 0
@@ -283,7 +289,7 @@ class HullWhite(Dynamic):
                     ci += 1
 
                 Xi = self.ZCB(Te, Si, initRate=rbar)
-                sum += ci*self.ZCBoption(t, Te, Si, Xi,initRate=rbar, call=(not payer))
+                sum += ci*self.ZCBoption(t, Te, Si, Xi,initRate=initRate, call=(not payer))
                 
             return sum
         

@@ -1,7 +1,7 @@
 import seaborn as sns
 import matplotlib.pyplot as plt
 import numpy as np
-from joblib import Parallel, delayed, cpu_count, dump
+from joblib import Parallel, delayed, cpu_count, dump, load
 from scipy.optimize import fsolve
 from HullWhite import HullWhite
 import time as timer
@@ -16,11 +16,16 @@ volatility=0.017793899652989272
 # HW = HullWhite(initial=0.02459103, reversion=0.03, volatility=0.00200, Gamma=1000, b=beta, tau=tau)
 HW = HullWhite(initial=0.02459103, reversion=reversion, volatility=volatility, Gamma=1000, b=beta, tau=tau)
 
-dt = 1/365
+
+
 
 #Setting up tenor
 T=np.arange(0,10+0.5,0.5)
 S=np.arange(0,11,1)
+
+# Other settings
+dt = 1/365
+sims = 5000
 
 #Helper functions 
 def pos (x):
@@ -30,12 +35,11 @@ def neg (x):
     return np.minimum(x,0)
 
 #10Y Payer Swap Exposure
-sims = 100
 if False:
+    print('10Y Payer Swap Exposure')
     start = timer.time()
     time, float = HW.create_path(dt,10, seed=0)
     K=fsolve(lambda x: HW.swap(0, S, T, x), x0=0.02)[0]
-
 
     def worker(i):
         time, float = HW.create_path(dt,10, seed=i)
@@ -44,7 +48,7 @@ if False:
         return np.maximum(swap,0), np.minimum(swap,0)
 
     print('Starting parallel processing with {} cores'.format(cpu_count()))
-    results = Parallel(n_jobs=cpu_count())(delayed(worker)(i) for i in range(sims))
+    results = Parallel(n_jobs=np.minimum(cpu_count(),sims))(delayed(worker)(i) for i in range(sims))
     print('Finished parallel processing')
     PE = np.zeros(len(time))
     NE = np.zeros(len(time))
@@ -87,7 +91,8 @@ if False:
     
     print( 'Finished creating graph')
 # 5Y10YForward Swap
-if True:
+if False:
+    print('5Y10YForward Swap Exposure')
     start = timer.time()
     time, float = HW.create_path(dt,15, seed=0)
     K=fsolve(lambda x: HW.swap(0, S+5, T+5, x), x0=0.02)[0]
@@ -100,7 +105,7 @@ if True:
         return np.maximum(swap,0), np.minimum(swap,0)
 
     print('Starting parallel processing with {} cores'.format(cpu_count()))
-    results = Parallel(n_jobs=cpu_count())(delayed(worker)(i) for i in range(sims))
+    results = Parallel(n_jobs=np.minimum(cpu_count(),sims))(delayed(worker)(i) for i in range(sims))
     print('Finished parallel processing')
     PE = np.zeros(len(time))
     NE = np.zeros(len(time))
@@ -113,9 +118,9 @@ if True:
     discounting = np.array([HW.marketZCB(t) for t in time])
 
     plt.rc('font',family='Times New Roman')
-    float_x = np.arange(0.5,15.5,0.5)
+    float_x = np.arange(5.5,15.5,0.5)
     float_y = np.full((len(float_x),), -6.6)
-    fix_x = np.arange(1,16)
+    fix_x = np.arange(6,16)
     fix_y = np.full(len(fix_x), -6)
 
     fig, ax = plt.subplots()
@@ -144,6 +149,7 @@ if True:
 
 #5Y10Y Payer Swaption Exposure
 if True:
+    print('5Y10Y Payer Swaption Exposure')
     start = timer.time()
     time, float = HW.create_path(dt,15, seed=0)
     from joblib import Parallel, delayed, cpu_count
@@ -152,14 +158,14 @@ if True:
 
     def worker(i):
         time, float = HW.create_path(dt, 15, seed=i)
-        swap = np.array([HW.swaption(x[0], Te=5, S=S+5, T=T+5, K=K, initRate=x[1]) for x in np.array([time,float]).T])
+        swap = np.array([HW.swaption(x[0], Te=5, S=S+5, T=T+5, K=K, initRate=x[1], floatRate=float, schedule=time) for x in np.array([time,float]).T])
         print('{:.2f}%'.format(round(i/sims*100, 2)), end='\r')
         if swap[np.where(time==5)] < 0:
             swap[np.where(time>=5)]=0
         return np.maximum(swap,0), np.minimum(swap,0)
 
     print('Starting parallel processing with {} cores'.format(cpu_count()))
-    results = Parallel(n_jobs=cpu_count())(delayed(worker)(i) for i in range(sims))
+    results = Parallel(n_jobs=np.minimum(cpu_count(),sims))(delayed(worker)(i) for i in range(sims))
     print('Finished parallel processing')
     PE = np.zeros(len(time))
     NE = np.zeros(len(time))
@@ -195,13 +201,14 @@ if True:
     plt.grid(alpha = 0.25)
     plt.xticks(np.arange(0, 16))
     plt.legend(frameon = False, fontsize = 18, loc='upper right')
-    dump(PE/sims, f'./SimulationData/PE_5Y10YPayer_Swaption_N={sims}_dt={round(dt,2)}.joblib')
-    dump(NE/sims, f'./SimulationData/NE_5Y10YPayer_Swaption_N={sims}_dt={round(dt,2)}.joblib')
-    plt.savefig(f'./Graphs/Exposure_Plot_5Y10YPayer_Swaption_N={sims}_dt={round(dt,2)}.png', bbox_inches='tight')
+    dump(PE/sims, f'./SimulationData/PE_5Y10YPayer_Swaption_N={sims}_dt={int(1/dt)}.joblib')
+    dump(NE/sims, f'./SimulationData/NE_5Y10YPayer_Swaption_N={sims}_dt={int(1/dt)}.joblib')
+    plt.savefig(f'./Graphs/Exposure_Plot_5Y10YPayer_Swaption_N={sims}_dt={int(1/dt)}.png', bbox_inches='tight')
     print( 'Finished creating graph')
 
 # Swap with Variation Margin
-if False:
+if True:
+    print('10Y Payer Swap with Variation Margin')
     start = timer.time()
     time, float = HW.create_path(dt,10, seed=0)
     K=fsolve(lambda x: HW.swap(0, S, T, x), x0=0.02)[0]
@@ -211,7 +218,7 @@ if False:
 
     def worker(i):
         time, float = HW.create_path(dt,10, seed=i)
-        swap = np.array([HW.swap(x[0], S, T, K=K, initRate=x[1]) for x in np.array([time,float]).T])
+        swap = np.array([HW.swapextended(x[0], S, T, K=K, floatRate=float, schedule=time, initRate=x[1]) for x in np.array([time,float]).T])
         
         VM = []
 
@@ -237,7 +244,7 @@ if False:
         
 
     print('Starting parallel processing with {} cores'.format(cpu_count()))
-    results = Parallel(n_jobs=cpu_count())(delayed(worker)(i) for i in range(sims))
+    results = Parallel(n_jobs=np.minimum(cpu_count(),sims))(delayed(worker)(i) for i in range(sims))
     print('Finished parallel processing')
     PE = np.zeros(len(time))
     NE = np.zeros(len(time))
@@ -273,14 +280,15 @@ if False:
     plt.grid(alpha = 0.25)
     plt.xticks(np.arange(0, 10.5, 0.5))
     plt.legend(frameon = False, fontsize = 18, loc='upper right')
-    dump(PE/sims, f'./SimulationData/PE_10Y_Swap_With_VM_N={sims}_dt={round(dt,2)}.joblib')
-    dump(NE/sims, f'./SimulationData/NE_10Y_Swap_With_VM_N={sims}_dt={round(dt,2)}.joblib')
-    plt.savefig(f'./Graphs/Exposure_Plot_10YPayer_Swap_With_VM_N={sims}_dt={round(dt,2)}.png', bbox_inches='tight')
+    dump(PE/sims, f'./SimulationData/PE_10Y_Swap_With_VM_N={sims}_dt={int(1/dt)}.joblib')
+    dump(NE/sims, f'./SimulationData/NE_10Y_Swap_With_VM_N={sims}_dt={int(1/dt)}.joblib')
+    plt.savefig(f'./Graphs/Exposure_Plot_10YPayer_Swap_With_VM_N={sims}_dt={int(1/dt)}.png', bbox_inches='tight')
     print( 'Finished creating graph')
 
 
     # Swaption with Variation Margin
-if False:
+if True:
+    print('5Y10Y Payer Swaption Exposure with Variation Margin')
     start = timer.time()
     #5Y10Y Payer Swaption Exposure
     time, float = HW.create_path(dt,15, seed=0)
@@ -292,7 +300,7 @@ if False:
 
     def worker(i):
         time, float = HW.create_path(dt,15, seed=i)
-        swap = np.array([HW.swaption(x[0], Te=5, S=S+5, T=T+5, K=K, initRate=x[1]) for x in np.array([time,float]).T])
+        swap = np.array([HW.swaption(x[0], Te=5, S=S+5, T=T+5, K=K, initRate=x[1], floatRate=float, schedule=time) for x in np.array([time,float]).T])
         if swap[np.where(time==5)] < 0:
             swap[np.where(time>=5)]=0
         
@@ -318,7 +326,7 @@ if False:
         return np.maximum(swap-VM,0), np.minimum(swap-VM,0)
 
     print('Starting parallel processing with {} cores'.format(cpu_count()))
-    results = Parallel(n_jobs=cpu_count())(delayed(worker)(i) for i in range(sims))
+    results = Parallel(n_jobs=np.minimum(cpu_count(),sims))(delayed(worker)(i) for i in range(sims))
     print('Finished parallel processing')
     PE = np.zeros(len(time))
     NE = np.zeros(len(time))
@@ -337,8 +345,8 @@ if False:
     fix_y = np.full(len(fix_x), -2)
 
     fig, ax = plt.subplots()
-    sns.lineplot(x=time, y=PE/sims*100, label = 'EPE')
-    sns.lineplot(x=time, y=NE/sims*100, label = 'ENE')
+    sns.lineplot(x=time[2::], y=(PE/sims*100)[2::], label = 'EPE')
+    sns.lineplot(x=time[2::], y=(NE/sims*100)[2::], label = 'ENE')
     plt.scatter(x=float_x, y=float_y, label = 'Float', marker = 'x', s = 60, c='black', linewidths=2)
     plt.scatter(x=fix_x, y=fix_y, label = 'Fix', marker = 'o', s = 60, facecolors='none', edgecolors='r', linewidths=2)
     fig.set_size_inches(15,8)
@@ -349,12 +357,12 @@ if False:
     ax.tick_params(axis='x', direction='in', right = 'True', labelsize = 24, pad = 15)
     ax.tick_params(axis='y', direction='in', top = 'True', labelsize = 24, pad = 15)
     ax.xaxis.set_label_coords(0.5, -0.1)
-    ax.yaxis.set_label_coords(-0.03, 0.5)
+    ax.yaxis.set_label_coords(-0.08, 0.5)
     ax.axhline(y=0, color='k', alpha = 0.25)
     plt.grid(alpha = 0.25)
     plt.xticks(np.arange(0, 16))
     plt.legend(frameon = False, fontsize = 18, loc='upper right')
-    dump(PE/sims, f'./SimulationData/PE_5Y10Y_Swaption_With_VM_N={sims}_dt={round(dt,2)}.joblib')
-    dump(NE/sims, f'./SimulationData/NE_5Y10Y_Swaption_With_VM_N={sims}_dt={round(dt,2)}.joblib')
-    plt.savefig(f'./Graphs/Exposure_Plot_5Y10YPayer_Swaption_With_VM_N={sims}_dt={round(dt,2)}.png', bbox_inches='tight')
+    dump(PE/sims, f'./SimulationData/PE_5Y10Y_Swaption_With_VM_N={sims}_dt={int(1/dt)}.joblib')
+    dump(NE/sims, f'./SimulationData/NE_5Y10Y_Swaption_With_VM_N={sims}_dt={int(1/dt)}.joblib')
+    plt.savefig(f'./Graphs/Exposure_Plot_5Y10YPayer_Swaption_With_VM_N={sims}_dt={int(1/dt)}.png', bbox_inches='tight')
     print( 'Finished creating graph')
