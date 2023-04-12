@@ -188,8 +188,7 @@ class HullWhite(Dynamic):
         if initRate==None:
             initRate = self.init
 
-        if t > T[0]:
-            print('Error, time is after first fixing')
+        if t >= T[-1]:
             return 0
 
         if payer:
