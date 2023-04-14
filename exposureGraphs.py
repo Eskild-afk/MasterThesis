@@ -25,7 +25,7 @@ S=np.arange(0,11,1)
 
 # Other settings
 dt = 1/365
-sims = 100
+sims = 1000
 
 #10Y Payer Swap Exposure
 if False:
@@ -201,7 +201,7 @@ if False:
     print( 'Finished creating graph')
 
 # Swap with Variation Margin
-if False:
+if True:
     print('10Y Payer Swap with Variation Margin')
     start = timer.time()
     time, float = HW.create_path(dt,10, seed=0)
@@ -233,7 +233,9 @@ if False:
 
             VM.append(VMta)
             print('{:.2f}%'.format(round(i/sims*100, 2)), end='\r')
-        return np.maximum(swap-VM,0), np.minimum(swap-VM,0)
+
+        exposure = np.where(swap > 0, np.maximum(swap-VM,0), np.minimum(swap-VM,0))
+        return np.maximum(exposure,0), np.minimum(exposure,0)
         
         
 
@@ -461,7 +463,7 @@ if False:
 
 
 #Swaption with VM and IM
-if True:
+if False:
     print('5Y Payer Swaption with Variation and Initial Margin')
     start = timer.time()
     time, float = HW.create_path(dt,15, seed=0)
