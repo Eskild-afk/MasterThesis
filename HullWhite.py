@@ -17,7 +17,6 @@ class HullWhite(Dynamic):
             initial,    #r/r_0
             reversion,  #beta
             volatility, #sigma
-            Gamma,      #PieceVolParams
             b:np.array, #Params for the forward curve
             tau:np.array#Params for the forward curve
         )->None:
@@ -25,7 +24,6 @@ class HullWhite(Dynamic):
         super().__init__(initial) 
         self.rev    = reversion
         self.vol    = volatility
-        self.Gamma  = Gamma
         self.b      = b
         self.tau    = tau
     
@@ -252,7 +250,7 @@ class HullWhite(Dynamic):
             return self.ZCB(expiry,T[1],rbar)/self.ZCB(T[0],T[1],self.init)-sum
     
 
-    def swaption(self, t, Te, S:np.array, T:np.array, K, floatRate, schedule, initRate=None, payer=True):
+    def swaption(self, t, Te, S:np.array, T:np.array, K, floatRate=None, schedule=None, initRate=None, payer=True):
         
         if initRate==None:
             initRate = self.init
