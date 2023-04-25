@@ -17,13 +17,12 @@ class Dynamic:
     def create_path(self, stepsize:float, duration:float, fwd=0, seed=None)->np.array:
         steps = int(duration/stepsize)
         path = [self.init]
-        time = [0]
         np.random.seed(seed)
+        Z = np.random.normal(0,1,steps)
         for i in range(steps):
-            path.append((self.oneStep(t=time[i], stepfrom=path[i], stepsize=stepsize, fwd=fwd)))
-            time.append((i+1)*stepsize)
+            path.append((self.oneStep(t=(i+1)*stepsize, stepfrom=path[i], stepsize=stepsize, fwd=fwd, Z=Z[i])))
 
-        return np.array(time), np.array(path)
+        return np.arange(0,duration+stepsize,stepsize), np.array(path)
 
 
 class G2PP(Dynamic):

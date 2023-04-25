@@ -1,8 +1,9 @@
 from dynamics import Dynamic
 from scipy.optimize import minimize, fsolve
 import numpy as np
-from scipy.stats import norm, multivariate_normal
-from scipy import integrate
+from scipy.stats import norm, multivariate_normal as mvn
+from scipy.integrate import dblquad
+from helpers import * 
 class HullWhite(Dynamic):
     '''
     The dynamic is (mean+rev*r)dt + vol*gamma(T)*dW
@@ -88,16 +89,18 @@ class HullWhite(Dynamic):
 
         return alpha
     
-    def oneStep(self, t, stepfrom, stepsize, fwd=0):
+    def oneStep(self, t, stepfrom, stepsize, fwd=0, Z=None):
         '''
         One step of the simulation
         '''
-        
+        if Z is None:
+            Z = np.random.normal(0,1)
+
         if fwd==0:
-            dr = (self.theta(t)-self.rev*stepfrom)*stepsize + self.vol*np.sqrt(stepsize)*np.random.normal()
+            dr = (self.theta(t)-self.rev*stepfrom)*stepsize + self.vol*np.sqrt(stepsize)*Z
         
         else: # for now it is the same
-            dr = (self.theta(t)-self.rev*stepfrom)*stepsize - self.M(t, t+stepsize, fwd) + self.vol*np.sqrt(stepsize)*np.random.normal()
+            dr = (self.theta(t)-self.rev*stepfrom)*stepsize - self.M(t, t+stepsize, fwd) + self.vol*np.sqrt(stepsize)*Z
         
         return stepfrom+dr
     
@@ -132,11 +135,14 @@ class HullWhite(Dynamic):
         '''
         zcb = np.exp(-self.yieldCurve(t)*t)
         return zcb
-
+    def Var(self, t, T):
+        var = self.vol**2/(2*self.rev)*(1-np.exp(-2*self.rev*(T-t)))
+        return var
+    
     def C(self, t, T, S):
         # cov = self.vol**2*np.exp(-self.rev*(T+S))*(np.exp(-2*self.rev*T)-np.exp(-2*self.rev*t))
-        cov = self.vol*np.exp(-self.rev*(T+S))*np.exp(2*(T-t))/2
-        return np.array([self.V(t,T), cov, cov, self.V(t,S)]).reshape(2,2)
+        cov = self.vol**2*np.exp(-self.rev*T)*np.exp(-self.rev*S)*(np.exp(2*self.rev*np.minimum(T,S))-1)/(2*self.rev)
+        return np.array([self.Var(t,T), cov, cov, self.Var(t,S)]).reshape(2,2)
 
     def ZCB(self, t,T, initRate=None):
         if initRate==None:
@@ -215,7 +221,8 @@ class HullWhite(Dynamic):
             TRp1 = T[T >= t-0.5][1]
             fixedleft = S[S >= t - 1]
             rTR = floatRate[np.where(schedule>=TR)][0]
-            r = floatRate[np.where(schedule==t)][0]
+            r = floatRate[find_nearest(schedule,t)]
+            # r = floatRate[np.where(schedule==t)][0]
             sum = 0
             for i in fixedleft[1::]:
                 c=K
@@ -306,4 +313,29 @@ class HullWhite(Dynamic):
                 sum += ci*self.ZCBoption(t, Te, Si, Xi,initRate=initRate, call=(not payer))
             
             return sum/self.ZCB(T[0],T[1],self.init)
+        
+        elif (Te > T[0]):
+            def funcToIntegrate(er, ffr):
+                '''
+                er: expiry rate
+                ffr: first fixing rate
+                '''
+                sum = 0
+                for Si in S[1::]:
+                    ci = K
+                    if Si == S[-1]:
+                        ci += 1
+                    sum += ci*self.ZCB(Te, Si, initRate=er)
+                pdf = mvn.pdf([er,ffr], mean=[self.expectedRate(Te),self.expectedRate(T[0])], cov=self.C(0,Te,T[0]))
 
+                if payer:
+                    return np.maximum(self.ZCB(Te, T[1], initRate=er)/self.ZCB(T[0], T[1], initRate=ffr)-sum,0)*pdf
+                else:
+                    return np.maximum(sum-self.ZCB(Te, T[1], initRate=er)/self.ZCB(T[0], T[1], initRate=ffr),0)*pdf
+            sdTe = np.sqrt(self.Var(0,Te))
+            sdTR = np.sqrt(self.Var(0,T[0]))
+            factor = 10
+            return self.ZCB(0,Te)*dblquad(funcToIntegrate, -factor*sdTR,factor*sdTR,-factor*sdTe,factor*sdTe)[0]
+
+        else:
+            return 0
