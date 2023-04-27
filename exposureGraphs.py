@@ -13,10 +13,9 @@ import sys
 
 beta = np.array([1.879892, 0.579211, 	3.993992, 1.445091])
 tau  = np.array([ 16.633491, 	0.319680])
-reversion=0.13949636660880768 
-volatility=0.017793899652989272
-# HW = HullWhite(initial=0.02459103, reversion=0.03, volatility=0.00200, Gamma=1000, b=beta, tau=tau)
-HW = HullWhite(initial=0.02459103, reversion=reversion, volatility=volatility, b=beta, tau=tau)
+reversion=0.08670264780833303, #0.13949636660880768 
+volatility=0.013928489964789946 #0.017793899652989272
+HW = HullWhite(initial=0.02459103, reversion=0.03, volatility=0.00200, b=beta, tau=tau)
 
 
 #Setting up tenor
