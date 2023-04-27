@@ -25,7 +25,7 @@ S=np.arange(0,11,1)
 
 # Other settings
 dt   = 1/365
-sims = 100
+sims = 10
 total_time = timer.time()
 
 KVM=0 # Threshold for VM
@@ -334,6 +334,8 @@ if True:
 
     def worker(i):
         float = [HW.init]
+        VM = []
+        ts=1
         for j in range(1, len(ttso)):
             ss=ttso[j]-ttso[j-1] #stepsize
             float.append(HW.oneStep(t=ttso[j], stepfrom=float[j-1], stepsize=ss, fwd=0))
@@ -341,16 +343,17 @@ if True:
         if dt==1/365:
             lagged_float = np.array(float[0:len(float)-2])
             float = np.array(float)
+            ts+=2
+
+            swap = np.array([HW.swapextended(x[0], S, T, K=K, floatRate=float, schedule=time, initRate=x[1]) for x in np.array([time,float]).T])
+            lagged_swap = swap
         else:
             lagged_float = np.array(float[1::2])
             float = np.array(float[0::2])
 
-        swap = np.array([HW.swapextended(x[0], S, T, K=K, floatRate=float, schedule=time, initRate=x[1]) for x in np.array([time,float]).T])
-        lagged_swap = np.array([HW.swapextended(x[0], S, T, K=K, floatRate=lagged_float, schedule=lagged_time, initRate=x[1]) for x in np.array([lagged_time,lagged_float]).T])
-        VM = []
-        ts=1
-        if dt==1/365:
-            ts+=2
+            swap = np.array([HW.swapextended(x[0], S, T, K=K, floatRate=float, schedule=time, initRate=x[1]) for x in np.array([time,float]).T])
+            lagged_swap = np.array([HW.swapextended(x[0], S, T, K=K, floatRate=lagged_float, schedule=lagged_time, initRate=x[1]) for x in np.array([lagged_time,lagged_float]).T])
+
         for t in enumerate(time):
             if t[1]-lag<=0:
                 VM.append(0)
@@ -433,7 +436,7 @@ if True:
     dvaLB = DVA(time, dt, HMLB)
     with open('SimulationTimes.txt', 'a') as f:
         f.write(f'\n{sims},{int(1/dt)},{cva},{cvaUB},{cvaLB},{dva},{dvaUB},{dvaLB},10Y Payer Swap with VM,{timer.time()-start:.2f}')      
-sys.exit()
+
 # Swaption with Variation Margin
 if True:
     print('5Y10Y Payer Swaption Exposure with Variation Margin')
@@ -441,7 +444,7 @@ if True:
     
     #Constructing time grid
     time = np.arange(0,10+5+dt,dt)
-
+    time = time[np.where(time <= 15)]
     #Constructing lagged grid
     if dt == 1/365:
         lagged_time = time[0:len(time)-2]
@@ -454,6 +457,8 @@ if True:
 
     def worker(i):
         float = [HW.init]
+        VM = []
+        ts = 1
         for j in range(1, len(ttso)):
             ss=ttso[j]-ttso[j-1] #stepsize
             float.append(HW.oneStep(t=ttso[j], stepfrom=float[j-1], stepsize=ss, fwd=0))
@@ -461,35 +466,43 @@ if True:
         if dt==1/365:
             lagged_float = np.array(float[0:len(float)-2])
             float = np.array(float)
+            ts += 2
+
+            swap = np.array([HW.swaption(x[0], Te=5, S=S+5, T=T+5, K=K, initRate=x[1], floatRate=float, schedule=time) for x in np.array([time,float]).T])
+            lagged_swap = swap
         else:
             lagged_float = np.array(float[1::2])
             float = np.array(float[0::2])
 
-        swap = np.array([HW.swaption(x[0], Te=5, S=S+5, T=T+5, K=K, initRate=x[1], floatRate=float, schedule=time) for x in np.array([time,float]).T])
-        lagged_swap = np.array([HW.swaption(x[0], Te=5, S=S+5, T=T+5, K=K, initRate=x[1], floatRate=lagged_float, schedule=lagged_time) for x in np.array([time,float]).T])
-        VM = [0]
-        if dt==1/365:
-            VM.append(0)
+            swap = np.array([HW.swaption(x[0], Te=5, S=S+5, T=T+5, K=K, initRate=x[1], floatRate=float, schedule=time) for x in np.array([time,float]).T])
+            lagged_swap = np.array([HW.swaption(x[0], Te=5, S=S+5, T=T+5, K=K, initRate=x[1], floatRate=lagged_float, schedule=lagged_time) for x in np.array([lagged_time,lagged_float]).T])
+
+        
+        if swap[np.where(time==5)] < 0:
+            swap[np.where(time>=5)]=0
+            lagged_swap[np.where(lagged_time>=5)]=0
 
         for t in enumerate(time):
-            if t[0] == 0:
+            if t[1]-lag <= 0:
+                VM.append(0)
                 continue
             if t[1] >= time[-1]:
                 VM.append(0)
                 break
 
-            VMhat = VM[t[0]-1]/HW.ZCB(lagged_time[t[0]-1], lagged_time[t[0]], initRate=lagged_float[t[0]-1]) # VM hat in eq 3.2 everything...
+            VMhat = VM[t[0]-ts]/HW.ZCB(time[t[0]-1]-lag, time[t[0]]-lag, initRate=lagged_float[t[0]-ts]) # VM hat in eq 3.2 everything...
             VMta  = VMhat #(ta: to append) 
             
-            VMta += (abs(pos(lagged_swap[t[0]]-KVM)-pos(VMhat))>MTA)*(pos(lagged_swap[t[0]]-KVM)-pos(VMhat))
-            VMta += (abs(neg(lagged_swap[t[0]]+KVM)-neg(VMhat))>MTA)*(neg(lagged_swap[t[0]]+KVM)-neg(VMhat))
+            VMta += (abs(pos(lagged_swap[t[0]-ts]-KVM)-pos(VMhat))>MTA)*(pos(lagged_swap[t[0]-ts]-KVM)-pos(VMhat))
+            VMta += (abs(neg(lagged_swap[t[0]-ts]+KVM)-neg(VMhat))>MTA)*(neg(lagged_swap[t[0]-ts]+KVM)-neg(VMhat))
 
             VM.append(VMta)
             print('{:.2f}%'.format(round(i/sims*100, 2)), end='\r')
 
 
         print('{:.2f}%'.format(round(i/sims*100, 2)), end='\r')
-        return np.maximum(np.maximum(swap-VM,0),0), np.minimum(np.minimum(swap-VM,0),0)
+        exposure = np.where(swap >= 0,  np.maximum(swap-VM,0), np.minimum(swap-VM,0))
+        return np.maximum(exposure,0), np.minimum(exposure,0)
 
     print('Starting parallel processing with {} cores'.format(cpu_count()))
     results = Parallel(n_jobs=np.minimum(cpu_count(),sims))(delayed(worker)(i) for i in range(sims))
@@ -558,6 +571,7 @@ if True:
     
     #Constructing time grid
     time = np.arange(0,10+dt,dt)
+    time = time[np.where(time <= 10)]
 
     #Constructing lagged grid
     if dt == 1/365:
@@ -575,6 +589,9 @@ if True:
 
     def worker(i):
         float = [HW.init]
+        VM = []
+        IM = []
+        ts = 1
         for j in range(1, len(ttso)):
             ss=ttso[j]-ttso[j-1] #stepsize
             float.append(HW.oneStep(t=ttso[j], stepfrom=float[j-1], stepsize=ss, fwd=0))
@@ -582,42 +599,42 @@ if True:
         if dt==1/365:
             lagged_float = np.array(float[0:len(float)-2])
             float = np.array(float)
+            ts+=2
+
+            swap = np.array([HW.swapextended(x[0], S, T, K=K, floatRate=float, schedule=time, initRate=x[1]) for x in np.array([time,float]).T])
+            lagged_swap = swap
+            swapBP = np.array([HW.swapextended(x[0], S, T, K=K, floatRate=lagged_float+oneBP, schedule=lagged_time, initRate=x[1]+oneBP) for x in np.array([lagged_time,lagged_float]).T])
+
         else:
             lagged_float = np.array(float[1::2])
             float = np.array(float[0::2])
 
-        swap = np.array([HW.swapextended(x[0], S, T, K=K, floatRate=float, schedule=time, initRate=x[1]) for x in np.array([time,float]).T])
-        lagged_swap = np.array([HW.swapextended(x[0], S, T, K=K, floatRate=lagged_float, schedule=lagged_time, initRate=x[1]) for x in np.array([time,float]).T])
-        VM = [0]
-        if dt==1/365:
-            VM.append(0)
-
+            swap = np.array([HW.swapextended(x[0], S, T, K=K, floatRate=float, schedule=time, initRate=x[1]) for x in np.array([time,float]).T])
+            lagged_swap = np.array([HW.swapextended(x[0], S, T, K=K, floatRate=lagged_float, schedule=lagged_time, initRate=x[1]) for x in np.array([lagged_time,lagged_float]).T])
+            swapBP = np.array([HW.swapextended(x[0], S, T, K=K, floatRate=lagged_float+oneBP, schedule=lagged_time, initRate=x[1]+oneBP) for x in np.array([lagged_time,lagged_float]).T])
+        
+            
         for t in enumerate(time):
-            if t[0] == 0:
+            if t[1]-lag <= 0:
+                VM.append(0)
+                IM.append(0)
                 continue
             if t[1] >= time[-1]:
                 VM.append(0)
-                break
-
-            VMhat = VM[t[0]-1]/HW.ZCB(lagged_time[t[0]-1], lagged_time[t[0]], initRate=lagged_float[t[0]-1]) # VM hat in eq 3.2 everything...
-            VMta  = VMhat #(ta: to append) 
-            
-            VMta += (abs(pos(lagged_swap[t[0]]-KVM)-pos(VMhat))>MTA)*(pos(lagged_swap[t[0]]-KVM)-pos(VMhat))
-            VMta += (abs(neg(lagged_swap[t[0]]+KVM)-neg(VMhat))>MTA)*(neg(lagged_swap[t[0]]+KVM)-neg(VMhat))
-
-            VM.append(VMta)
-
-        
-        swapBP = np.array([HW.swapextended(x[0], S, T, K=K, floatRate=lagged_float+oneBP, schedule=lagged_time, initRate=x[1]+oneBP) for x in np.array([lagged_time,lagged_float]).T])
-        IM = [0]
-        if dt==1/365:
-            IM.append(0)
-            
-        for t in enumerate(lagged_time):
-            if t[1] >= time[-1]:
                 IM.append(0)
                 break
-            s = swapBP[t[0]]-lagged_swap[t[0]]
+
+            #VM calc
+            VMhat = VM[t[0]-ts]/HW.ZCB(time[t[0]-1]-lag, time[t[0]]-lag, initRate=lagged_float[t[0]-ts]) # VM hat in eq 3.2 everything...
+            VMta  = VMhat #(ta: to append) 
+            
+            VMta += (abs(pos(lagged_swap[t[0]-ts]-KVM)-pos(VMhat))>MTA)*(pos(lagged_swap[t[0]-ts]-KVM)-pos(VMhat))
+            VMta += (abs(neg(lagged_swap[t[0]-ts]+KVM)-neg(VMhat))>MTA)*(neg(lagged_swap[t[0]-ts]+KVM)-neg(VMhat))
+            
+            VM.append(VMta)
+
+            #IM calc
+            s = swapBP[t[0]-ts]-lagged_swap[t[0]-ts]
             CR_B = np.maximum(1,np.sqrt(abs(s)/T_b))
             IMta = CR_B*s*RW_6M
 
@@ -689,52 +706,87 @@ if True:
         f.write(f'\n{sims},{int(1/dt)},{cva},{cvaUB},{cvaLB},{dva},{dvaUB},{dvaLB},10Y Payer Swap with VM+IM,{timer.time()-start:.2f}')
 
 #Swaption with VM and IM
-if False:
+if True:
     print('5Y10Y Payer Swaption with Variation and Initial Margin')
     start = timer.time()
-    time, float = HW.create_path(dt,15, seed=0)
+    #Constructing time grid
+    time = np.arange(0,15+dt,dt)
+    time = time[np.where(time <= 15)]
+
+    #Constructing lagged grid
+    if dt == 1/365:
+        lagged_time = time[0:len(time)-2]
+        ttso = time   #times to simulate on
+    else:
+        lagged_time = (time-lag)[1::]
+        ttso = np.insert(time, np.arange(1,len(time)), lagged_time)
+
     K=fsolve(lambda x: HW.swap(0, S, T, x), x0=0.02)[0]
-    
+
     oneBP=0.0001
     RW_6M=53
     T_b=230
-    def worker(i):
-        time, float = HW.create_path(dt, 15, i)
-        swaption = np.array([HW.swaption(x[0], Te=5, S=S+5, T=T+5, K=K, initRate=x[1], floatRate=float, schedule=time) for x in np.array([time,float]).T])
-        if swaption[np.where(time==5)] < 0:
-            swaption[np.where(time>=5)]=0
 
-        swaptionBP = np.array([HW.swaption(x[0], Te=5, S=S+5, T=T+5, K=K, initRate=x[1]+oneBP, floatRate=float+oneBP, schedule=time,) for x in np.array([time,float]).T])
-        if swaptionBP[np.where(time==5)] < 0:
-            swaptionBP[np.where(time>=5)]=0
-            
+    def worker(i):
+        float = [HW.init]
         IM = []
         VM = []
+        ts=1
 
-        for t in range(len(time)):
-            ttilde = t-lag
-            if (t == 0) or (ttilde <= 0):
-                IM.append(0)
+        for j in range(1, len(ttso)):
+            ss=ttso[j]-ttso[j-1] #stepsize
+            float.append(HW.oneStep(t=ttso[j], stepfrom=float[j-1], stepsize=ss, fwd=0))
+        
+
+        if dt==1/365:
+            lagged_float = np.array(float[0:len(float)-2])
+            float = np.array(float)
+            ts+=2
+            swaption = np.array([HW.swaption(x[0], Te=5, S=S+5, T=T+5, K=K, initRate=x[1], floatRate=float, schedule=time) for x in np.array([time,float]).T])
+
+            swaptionBP = np.array([HW.swaption(x[0], Te=5, S=S+5, T=T+5, K=K, initRate=x[1]+oneBP, floatRate=lagged_float+oneBP, schedule=lagged_time,) for x in np.array([lagged_time,lagged_float]).T])
+            lagged_swaption = swaption
+            
+        else:
+            lagged_float = np.array(float[1::2])
+            float = np.array(float[0::2])
+
+            swaption = np.array([HW.swaption(x[0], Te=5, S=S+5, T=T+5, K=K, initRate=x[1], floatRate=float, schedule=time) for x in np.array([time,float]).T])
+            swaptionBP = np.array([HW.swaption(x[0], Te=5, S=S+5, T=T+5, K=K, initRate=x[1]+oneBP, floatRate=lagged_float+oneBP, schedule=lagged_time,) for x in np.array([lagged_time,lagged_float]).T])
+            lagged_swaption = np.array([HW.swaption(x[0], Te=5, S=S+5, T=T+5, K=K, initRate=x[1], floatRate=lagged_float, schedule=lagged_time) for x in np.array([lagged_time,lagged_float]).T])
+            
+        if swaption[np.where(time==5)] < 0:
+            swaption[np.where(time>=5)]=0
+            lagged_swaption[np.where(lagged_time>=5)]=0
+            swaptionBP[np.where(lagged_time>=5)]=0
+
+        for t in enumerate(time):
+            if t[1]-lag <= 0:
                 VM.append(0)
+                IM.append(0)
                 continue
-            if t == len(time)-1:
-                IM.append(0)
+            if t[1] >= time[-1]:
                 VM.append(0)
+                IM.append(0)
                 break
 
-            VMhat = VM[ttilde-1]/HW.ZCB(time[ttilde-1], time[ttilde], initRate=float[ttilde-1]) # VM hat in eq 3.2 everything...
+            #VM calc
+            VMhat = VM[t[0]-ts]/HW.ZCB(time[t[0]-1]-lag, time[t[0]]-lag, initRate=lagged_float[t[0]-ts]) # VM hat in eq 3.2 everything...
             VMta  = VMhat #(ta: to append) 
             
-            VMta += (abs(pos(swaption[ttilde]-KVM)-pos(VMhat))>MTA)*(pos(swaption[ttilde]-KVM)-pos(VMhat))
-            VMta += (abs(neg(swaption[ttilde]+KVM)-neg(VMhat))>MTA)*(neg(swaption[ttilde]+KVM)-neg(VMhat))
+            VMta += (abs(pos(lagged_swaption[t[0]-ts]-KVM)-pos(VMhat))>MTA)*(pos(lagged_swaption[t[0]-ts]-KVM)-pos(VMhat))
+            VMta += (abs(neg(lagged_swaption[t[0]-ts]+KVM)-neg(VMhat))>MTA)*(neg(lagged_swaption[t[0]-ts]+KVM)-neg(VMhat))
 
             VM.append(VMta)
-            s = swaptionBP[ttilde]-swaption[ttilde]
+
+            #IM calc
+            s = swaptionBP[t[0]-ts]-lagged_swaption[t[0]-ts]
             CR_B = np.maximum(1,np.sqrt(abs(s)/T_b))
             IM.append(CR_B*s*RW_6M)
-            print('{:.2f}%'.format(round(i/sims*100, 2)), end='\r')
+            #print('{:.2f}%'.format(round(i/sims*100, 2)), end='\r')
                         
         exposure = np.where(swaption > 0, np.maximum(swaption-VM-IM,0), np.minimum(swaption-VM+IM,0))
+        print('{:.2f}%'.format(round(i/sims*100, 2)), end='\r')
         return np.maximum(exposure, 0), np.minimum(exposure, 0)
         
         
