@@ -13,9 +13,9 @@ import sys
 
 beta = np.array([1.879892, 0.579211, 	3.993992, 1.445091])
 tau  = np.array([ 16.633491, 	0.319680])
-reversion=0.08670264780833303, #0.13949636660880768 
+reversion=0.08670264780833303 #0.13949636660880768
 volatility=0.013928489964789946 #0.017793899652989272
-HW = HullWhite(initial=0.02459103, reversion=0.03, volatility=0.00200, b=beta, tau=tau)
+HW = HullWhite(initial=0.02459103, reversion=reversion, volatility=volatility, b=beta, tau=tau)
 
 
 #Setting up tenor
@@ -23,8 +23,8 @@ T=np.arange(0,10+0.5,0.5)
 S=np.arange(0,11,1)
 
 # Other settings
-dt   = 1/365
-sims = 10
+dt   = 1/12
+sims = 5000
 total_time = timer.time()
 
 KVM=0 # Threshold for VM
@@ -33,7 +33,7 @@ MTA=0 # Minimum Transfer Amount
 lag=2/365 # Lookback lag
 #10Y Payer Swap Exposure
 print(f'Simulation started with dt=1/{int(1/dt)} and N={sims}')
-if False:
+if True:
     print('10Y Payer Swap Exposure')
     start = timer.time()
     
@@ -52,7 +52,7 @@ if False:
     K=fsolve(lambda x: HW.swap(0, S, T, x), x0=0.02)[0]
 
     def worker(i):
-        time, float = HW.create_path(dt, 10,0,i)
+        float = HW.create_path(dt, 10,0,i)[1]
         swap = np.array([HW.swapextended(x[0], S, T, K=K, floatRate=float, schedule=time, initRate=x[1]) for x in np.array([time,float]).T])
         print('{:.2f}%'.format(round(i/sims*100, 2)), end='\r')
         return np.maximum(swap,0), np.minimum(swap,0)
@@ -71,21 +71,32 @@ if False:
     print('Creating graph')
 
     discounting = np.array([HW.marketZCB(t) for t in time])
-
     sigmaP = 0
     sigmaM = 0
-    EPE =  load("./SimulationData/PE_10Y_Swap_N=100000_dt=365.joblib")
-    ENE =  load("./SimulationData/NE_10Y_Swap_N=100000_dt=365.joblib")
     for H in results:
-        sigmaP += (discounting*(H[0]-EPE))**2
-        sigmaM += (discounting*(H[1]-ENE))**2
+        sigmaP += (discounting*(H[0]-PE/sims))**2
+        sigmaM += (discounting*(H[1]-NE/sims))**2
     sigmaP = np.sqrt(sigmaP/(sims-1))
     sigmaM = np.sqrt(sigmaM/(sims-1))
 
-    HPUB = discounting*EPE+3*sigmaP/np.sqrt(sims)
-    HPLB = discounting*EPE-3*sigmaP/np.sqrt(sims)
-    HMUB = discounting*ENE+3*sigmaM/np.sqrt(sims)
-    HMLB = discounting*ENE-3*sigmaM/np.sqrt(sims)
+    HPUB = discounting*PE/sims+3*sigmaP/np.sqrt(sims)
+    HPLB = discounting*PE/sims-3*sigmaP/np.sqrt(sims)
+    HMUB = discounting*NE/sims+3*sigmaM/np.sqrt(sims)
+    HMLB = discounting*NE/sims-3*sigmaM/np.sqrt(sims)
+    # sigmaP = 0
+    # sigmaM = 0
+    # EPE =  load("./SimulationData/PE_10Y_Swap_N=100000_dt=365.joblib")
+    # ENE =  load("./SimulationData/NE_10Y_Swap_N=100000_dt=365.joblib")
+    # for H in results:
+    #     sigmaP += (discounting*(H[0]-EPE))**2
+    #     sigmaM += (discounting*(H[1]-ENE))**2
+    # sigmaP = np.sqrt(sigmaP/(sims-1))
+    # sigmaM = np.sqrt(sigmaM/(sims-1))
+
+    # HPUB = discounting*EPE+3*sigmaP/np.sqrt(sims)
+    # HPLB = discounting*EPE-3*sigmaP/np.sqrt(sims)
+    # HMUB = discounting*ENE+3*sigmaM/np.sqrt(sims)
+    # HMLB = discounting*ENE-3*sigmaM/np.sqrt(sims)
 
     plt.rc('font',family='Times New Roman')
     float_x = np.arange(0.5,10.5,0.5)
@@ -126,7 +137,7 @@ if False:
     print( 'Finished creating graph')
     with open('SimulationTimes.txt', 'a') as f:
         f.write(f'\n{sims},{int(1/dt)},{cva},{cvaUB},{cvaLB},{dva},{dvaUB},{dvaLB},10Y Payer Swap Exposure,{timer.time()-start:.2f}')
-
+sys.exit()
 # 5Y10YForward Swap
 if False:
     print('5Y10Y Forward Payer Swap Exposure')

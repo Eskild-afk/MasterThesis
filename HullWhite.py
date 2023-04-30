@@ -2,7 +2,7 @@ from dynamics import Dynamic
 from scipy.optimize import minimize, fsolve
 import numpy as np
 from scipy.stats import norm, multivariate_normal as mvn
-from scipy.integrate import dblquad
+from scipy.integrate import quad, dblquad
 from helpers import * 
 class HullWhite(Dynamic):
     '''
@@ -85,7 +85,7 @@ class HullWhite(Dynamic):
 
         alpha = 0
         alpha += self.forwardCurve(t, self.b, self.tau)
-        alpha += self.vol**2/(2*self.rev**2)*(1-np.exp(-2*self.rev*t))
+        alpha += self.vol**2/(2*self.rev**2)*(1-np.exp(-self.rev*t))**2
 
         return alpha
     
@@ -332,10 +332,32 @@ class HullWhite(Dynamic):
                     return np.maximum(self.ZCB(Te, T[1], initRate=er)/self.ZCB(T[0], T[1], initRate=ffr)-sum,0)*pdf
                 else:
                     return np.maximum(sum-self.ZCB(Te, T[1], initRate=er)/self.ZCB(T[0], T[1], initRate=ffr),0)*pdf
+                
             sdTe = np.sqrt(self.Var(0,Te))
             sdTR = np.sqrt(self.Var(0,T[0]))
             factor = 10
-            return self.ZCB(0,Te)*dblquad(funcToIntegrate, -factor*sdTR,factor*sdTR,-factor*sdTe,factor*sdTe)[0]
-
+            return self.ZCB(0,Te)*dblquad(funcToIntegrate, -factor*sdTR,factor*sdTR,-factor*sdTe,factor*sdTe, epsabs=1e-04, epsrel=1e-04)[0]
+            #Below is assumin same rate at Te and T[0]
+            # def funcToIntegrate(er):
+            #     '''
+            #     er: expiry rate
+            #     ffr: first fixing rate
+            #     '''
+            #     sum = 0
+            #     for Si in S[1::]:
+            #         ci = K
+            #         if Si == S[-1]:
+            #             ci += 1
+            #         sum += ci*self.ZCB(Te, Si, initRate=er)
+            #     # pdf = mvn.pdf([er,ffr], mean=[self.expectedRate(Te),self.expectedRate(T[0])], cov=self.C(0,Te,T[0]))
+            #     pdf = norm.pdf(er, loc=self.expectedRate(Te), scale=np.sqrt(self.Var(0,Te)))
+            #     if payer:
+            #         return np.maximum(self.ZCB(Te, T[1], initRate=er)/self.ZCB(T[0], T[1], initRate=er)-sum,0)*pdf
+            #     else:
+            #         return np.maximum(sum-self.ZCB(Te, T[1], initRate=er)/self.ZCB(T[0], T[1], initRate=er),0)*pdf
+            
+            # sdTe = np.sqrt(self.Var(0,Te))
+            # factor = 10
+            # return self.ZCB(0,Te)*quad(funcToIntegrate, -factor*sdTe,factor*sdTe,epsabs=1e-04, epsrel=1e-04)[0]
         else:
             return 0

@@ -99,9 +99,6 @@ class G2PP(Dynamic):
         return np.exp(-initRate*duration-M+0.5*Vs)
         # return np.exp(-M+0.5*Vs)
 
-    def expectedRate(self, duration, initRate=None):
-        pass
-    
     def forward_rate(self, time, start, end, initRate=None):
         if initRate==None: 
             initRate = self.init
