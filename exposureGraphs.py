@@ -17,13 +17,13 @@ reversion=0.08670264780833303 #0.13949636660880768
 volatility=0.013928489964789946 #0.017793899652989272
 HW = HullWhite(initial=0.02459103, reversion=reversion, volatility=volatility, b=beta, tau=tau)
 
-
+nCPU=int(cpu_count()/2)
 #Setting up tenor
 T=np.arange(0,10+0.5,0.5)
 S=np.arange(0,11,1)
 
 # Other settings
-dt   = 1/12
+dt   = 1
 sims = 5000
 total_time = timer.time()
 
@@ -57,8 +57,8 @@ if True:
         print('{:.2f}%'.format(round(i/sims*100, 2)), end='\r')
         return np.maximum(swap,0), np.minimum(swap,0)
 
-    print('Starting parallel processing with {} cores'.format(cpu_count()))
-    results = Parallel(n_jobs=np.minimum(cpu_count(),sims))(delayed(worker)(i) for i in range(sims))
+    print('Starting parallel processing with {} cores'.format(nCPU))
+    results = Parallel(n_jobs=nCPU)(delayed(worker)(i) for i in range(sims))
     # results = [worker(i) for i in range(sims)]
     print('Finished parallel processing')
     PE = np.zeros(len(time))
@@ -137,7 +137,7 @@ if True:
     print( 'Finished creating graph')
     with open('SimulationTimes.txt', 'a') as f:
         f.write(f'\n{sims},{int(1/dt)},{cva},{cvaUB},{cvaLB},{dva},{dvaUB},{dvaLB},10Y Payer Swap Exposure,{timer.time()-start:.2f}')
-sys.exit()
+
 # 5Y10YForward Swap
 if False:
     print('5Y10Y Forward Payer Swap Exposure')
@@ -178,8 +178,8 @@ if False:
     #     print('{:.2f}%'.format(round(i/sims*100, 2)), end='\r')
     #     return np.maximum(swap,0), np.minimum(swap,0)
 
-    print('Starting parallel processing with {} cores'.format(cpu_count()))
-    results = Parallel(n_jobs=np.minimum(cpu_count(),sims))(delayed(worker)(i) for i in range(sims))
+    print('Starting parallel processing with {} cores'.format(nCPU))
+    results = Parallel(n_jobs=nCPU)(delayed(worker)(i) for i in range(sims))
     print('Finished parallel processing')
     PE = np.zeros(len(time))
     NE = np.zeros(len(time))
@@ -240,11 +240,11 @@ if False:
         f.write(f'\n{sims},{int(1/dt)},{cva},{cvaUB},{cvaLB},{dva},{dvaUB},{dvaLB},5Y10YForward Swap Exposure,{timer.time()-start:.2f}')
 
 #5Y10Y Payer Swaption Exposure
-if False:
+if True:
     print('5Y10Y Payer Swaption Exposure')
     #Constructing time grid
     time = np.arange(0,10+5+dt,dt)
-
+    time = time[np.where(time <= 15)]
     #Constructing lagged grid
     if dt == 1/365:
         lagged_time = time[0:len(time)-2]
@@ -256,15 +256,15 @@ if False:
     K=fsolve(lambda x: HW.swap(0, S+5, T+5, x), x0=0.02)[0]
 
     def worker(i):
-        time, float = HW.create_path(dt, 15, 0, i)
+        float = HW.create_path(dt, 15, 0, i)[1]
         swap = np.array([HW.swaption(x[0], Te=5, S=S+5, T=T+5, K=K, initRate=x[1], floatRate=float, schedule=time) for x in np.array([time,float]).T])
         if swap[np.where(time==5)] < 0:
             swap[np.where(time>=5)]=0
         print('{:.2f}%'.format(round(i/sims*100, 2)), end='\r')
         return np.maximum(swap,0), np.minimum(swap,0)
 
-    print('Starting parallel processing with {} cores'.format(cpu_count()))
-    results = Parallel(n_jobs=np.minimum(cpu_count(),sims))(delayed(worker)(i) for i in range(sims))
+    print('Starting parallel processing with {} cores'.format(nCPU))
+    results = Parallel(n_jobs=nCPU)(delayed(worker)(i) for i in range(sims))
     print('Finished parallel processing')
     PE = np.zeros(len(time))
     NE = np.zeros(len(time))
@@ -386,8 +386,8 @@ if True:
         return np.maximum(exposure,0), np.minimum(exposure,0)
         
 
-    print('Starting parallel processing with {} cores'.format(cpu_count()))
-    results = Parallel(n_jobs=np.minimum(cpu_count(),sims))(delayed(worker)(i) for i in range(sims))
+    print('Starting parallel processing with {} cores'.format(nCPU))
+    results = Parallel(n_jobs=nCPU)(delayed(worker)(i) for i in range(sims))
     print('Finished parallel processing')
     PE = np.zeros(len(time))
     NE = np.zeros(len(time))
@@ -514,8 +514,8 @@ if True:
         exposure = np.where(swap >= 0,  np.maximum(swap-VM,0), np.minimum(swap-VM,0))
         return np.maximum(exposure,0), np.minimum(exposure,0)
 
-    print('Starting parallel processing with {} cores'.format(cpu_count()))
-    results = Parallel(n_jobs=np.minimum(cpu_count(),sims))(delayed(worker)(i) for i in range(sims))
+    print('Starting parallel processing with {} cores'.format(nCPU))
+    results = Parallel(n_jobs=nCPU)(delayed(worker)(i) for i in range(sims))
     print('Finished parallel processing')
     PE = np.zeros(len(time))
     NE = np.zeros(len(time))
@@ -654,8 +654,8 @@ if True:
         print('{:.2f}%'.format(round(i/sims*100, 2)), end='\r')
         return np.maximum(result, 0), np.minimum(result, 0)
         
-    print('Starting parallel processing with {} cores'.format(cpu_count()))
-    results = Parallel(n_jobs=np.minimum(cpu_count(),sims))(delayed(worker)(i) for i in range(sims))
+    print('Starting parallel processing with {} cores'.format(nCPU))
+    results = Parallel(n_jobs=nCPU)(delayed(worker)(i) for i in range(sims))
     print('Finished parallel processing')
     PE = np.zeros(len(time))
     NE = np.zeros(len(time))
@@ -801,8 +801,8 @@ if True:
         
         
 
-    print('Starting parallel processing with {} cores'.format(cpu_count()))
-    results = Parallel(n_jobs=np.minimum(cpu_count(),sims))(delayed(worker)(i) for i in range(sims))
+    print('Starting parallel processing with {} cores'.format(nCPU))
+    results = Parallel(n_jobs=nCPU)(delayed(worker)(i) for i in range(sims))
     print('Finished parallel processing')
     PE = np.zeros(len(time))
     NE = np.zeros(len(time))
