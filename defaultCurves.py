@@ -46,13 +46,13 @@ def QC(t):
 
 def CVA(time, dt,PE):
     sum = 0
-    for i in range(len(time)):
-        sum += PE[i]*SI(time[i])*(QC(time[i])-QC(time[i]-dt))
+    for i in range(1,len(time)):
+        sum += PE[i]*SI(time[i])*(QC(time[i])-QC(time[i-1]))
     return -sum
 def DVA(time, dt, NE):
     sum = 0
-    for i in range(len(time)):
-        sum += NE[i]*SC(time[i])*(QI(time[i])-QI(time[i]-dt))
+    for i in range(1,len(time)):
+        sum += NE[i]*SC(time[i])*(QI(time[i])-QI(time[i-1]))
     return -sum
 
 # fig, ax = plt.subplots()

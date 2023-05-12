@@ -100,7 +100,8 @@ class HullWhite(Dynamic):
             dr = (self.theta(t)-self.rev*stepfrom)*stepsize + self.vol*np.sqrt(stepsize)*Z
         
         else: # for now it is the same
-            dr = (self.theta(t)-self.rev*stepfrom)*stepsize - self.M(t, t+stepsize, fwd) + self.vol*np.sqrt(stepsize)*Z
+            # dr = (self.theta(t)-self.rev*stepfrom)*stepsize - self.M(t, t+stepsize, fwd) + self.vol*np.sqrt(stepsize)*Z
+            dr = (self.theta(t)-self.rev*stepfrom)*stepsize - (self.vol**2)*self.B(t,fwd)*stepsize + self.vol*np.sqrt(stepsize)*Z
         
         return stepfrom+dr
     
@@ -336,7 +337,7 @@ class HullWhite(Dynamic):
             sdTe = np.sqrt(self.Var(0,Te))
             sdTR = np.sqrt(self.Var(0,T[0]))
             factor = 10
-            return self.ZCB(0,Te)*dblquad(funcToIntegrate, -factor*sdTR,factor*sdTR,-factor*sdTe,factor*sdTe, epsabs=1e-04, epsrel=1e-04)[0]
+            return self.ZCB(0,Te)*dblquad(funcToIntegrate, -factor*sdTR,factor*sdTR,-factor*sdTe,factor*sdTe)[0]
             #Below is assumin same rate at Te and T[0]
             # def funcToIntegrate(er):
             #     '''

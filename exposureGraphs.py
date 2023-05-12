@@ -17,13 +17,13 @@ reversion=0.08670264780833303 #0.13949636660880768
 volatility=0.013928489964789946 #0.017793899652989272
 HW = HullWhite(initial=0.02459103, reversion=reversion, volatility=volatility, b=beta, tau=tau)
 
-nCPU=int(cpu_count()/2)
+nCPU=int(cpu_count()/1-0)
 #Setting up tenor
 T=np.arange(0,10+0.5,0.5)
 S=np.arange(0,11,1)
 
 # Other settings
-dt   = 1
+dt   = 1/365
 sims = 5000
 total_time = timer.time()
 
@@ -33,7 +33,7 @@ MTA=0 # Minimum Transfer Amount
 lag=2/365 # Lookback lag
 #10Y Payer Swap Exposure
 print(f'Simulation started with dt=1/{int(1/dt)} and N={sims}')
-if True:
+if False:
     print('10Y Payer Swap Exposure')
     start = timer.time()
     
@@ -52,10 +52,12 @@ if True:
     K=fsolve(lambda x: HW.swap(0, S, T, x), x0=0.02)[0]
 
     def worker(i):
-        float = HW.create_path(dt, 10,0,i)[1]
+        float = HW.create_path(dt, 10,fwd=0,seed=i)[1]
+        # D = np.insert(np.exp(-float[:-1:]*time[1::]),0,1)
+        D = np.cumprod(np.insert(np.exp(-float[:-1:]*dt),0,1))
         swap = np.array([HW.swapextended(x[0], S, T, K=K, floatRate=float, schedule=time, initRate=x[1]) for x in np.array([time,float]).T])
         print('{:.2f}%'.format(round(i/sims*100, 2)), end='\r')
-        return np.maximum(swap,0), np.minimum(swap,0)
+        return D*np.maximum(swap,0), D*np.minimum(swap,0)
 
     print('Starting parallel processing with {} cores'.format(nCPU))
     results = Parallel(n_jobs=nCPU)(delayed(worker)(i) for i in range(sims))
@@ -70,7 +72,8 @@ if True:
     print(f'Finished sequential processing in {timer.time()-start:.2f}s')
     print('Creating graph')
 
-    discounting = np.array([HW.marketZCB(t) for t in time])
+    # discounting = np.array([HW.ZCB(0,t) for t in time])
+    discounting = 1
     sigmaP = 0
     sigmaM = 0
     for H in results:
@@ -238,9 +241,8 @@ if False:
     dvaLB = DVA(time, dt, HMLB)
     with open('SimulationTimes.txt', 'a') as f:
         f.write(f'\n{sims},{int(1/dt)},{cva},{cvaUB},{cvaLB},{dva},{dvaUB},{dvaLB},5Y10YForward Swap Exposure,{timer.time()-start:.2f}')
-
 #5Y10Y Payer Swaption Exposure
-if True:
+if False:
     print('5Y10Y Payer Swaption Exposure')
     #Constructing time grid
     time = np.arange(0,10+5+dt,dt)
@@ -258,10 +260,11 @@ if True:
     def worker(i):
         float = HW.create_path(dt, 15, 0, i)[1]
         swap = np.array([HW.swaption(x[0], Te=5, S=S+5, T=T+5, K=K, initRate=x[1], floatRate=float, schedule=time) for x in np.array([time,float]).T])
+        D = np.cumprod(np.insert(np.exp(-float[:-1:]*dt),0,1))
         if swap[np.where(time==5)] < 0:
             swap[np.where(time>=5)]=0
         print('{:.2f}%'.format(round(i/sims*100, 2)), end='\r')
-        return np.maximum(swap,0), np.minimum(swap,0)
+        return D*np.maximum(swap,0), D*np.minimum(swap,0)
 
     print('Starting parallel processing with {} cores'.format(nCPU))
     results = Parallel(n_jobs=nCPU)(delayed(worker)(i) for i in range(sims))
@@ -274,7 +277,7 @@ if True:
         NE += results[i][1]
     print(f'Finished sequential processing in {timer.time()-start:.2f} seconds')
     print('Creating graph')
-    discounting = np.array([HW.marketZCB(t) for t in time])
+    discounting = 1 #np.array([HW.marketZCB(t) for t in time])
     sigmaP = 0
     sigmaM = 0
     for H in results:
@@ -380,10 +383,10 @@ if True:
             VM.append(VMta)
             print('{:.2f}%'.format(round(i/sims*100, 2)), end='\r')
 
-
+        D = np.cumprod(np.insert(np.exp(-float[:-1:]*dt),0,1))
         print('{:.2f}%'.format(round(i/sims*100, 2)), end='\r')
         exposure = np.where(swap >= 0,  np.maximum(swap-VM,0), np.minimum(swap-VM,0))
-        return np.maximum(exposure,0), np.minimum(exposure,0)
+        return D*np.maximum(exposure,0), D*np.minimum(exposure,0)
         
 
     print('Starting parallel processing with {} cores'.format(nCPU))
@@ -397,7 +400,7 @@ if True:
         NE += results[i][1]
     print(f'Finished sequential processing in {timer.time()-start:.2f} seconds')
     print('Creating graph')
-    discounting = np.array([HW.marketZCB(t) for t in time])
+    discounting = 1#np.array([HW.marketZCB(t) for t in time])
     sigmaP = 0
     sigmaM = 0
     for H in results:
@@ -509,10 +512,10 @@ if True:
             VM.append(VMta)
             print('{:.2f}%'.format(round(i/sims*100, 2)), end='\r')
 
-
+        D = np.cumprod(np.insert(np.exp(-float[:-1:]*dt),0,1))
         print('{:.2f}%'.format(round(i/sims*100, 2)), end='\r')
         exposure = np.where(swap >= 0,  np.maximum(swap-VM,0), np.minimum(swap-VM,0))
-        return np.maximum(exposure,0), np.minimum(exposure,0)
+        return D*np.maximum(exposure,0), D*np.minimum(exposure,0)
 
     print('Starting parallel processing with {} cores'.format(nCPU))
     results = Parallel(n_jobs=nCPU)(delayed(worker)(i) for i in range(sims))
@@ -525,7 +528,7 @@ if True:
         NE += results[i][1]
     print(f'Finished sequential processing in {timer.time()-start:.2f} seconds')
     print('Creating graph')
-    discounting = np.array([HW.marketZCB(t) for t in time])
+    discounting = 1#np.array([HW.marketZCB(t) for t in time])
     sigmaP = 0
     sigmaM = 0
     for H in results:
@@ -649,10 +652,10 @@ if True:
             IMta = CR_B*s*RW_6M
 
             IM.append((np.maximum(IMta-KIM,0)>MTA)*np.maximum(IMta-KIM,0))
-                
+        D = np.cumprod(np.insert(np.exp(-float[:-1:]*dt),0,1)) 
         result = np.where(swap>0, np.maximum(swap-VM-IM,0), np.minimum(swap-VM+IM,0))
         print('{:.2f}%'.format(round(i/sims*100, 2)), end='\r')
-        return np.maximum(result, 0), np.minimum(result, 0)
+        return D*np.maximum(result, 0), D*np.minimum(result, 0)
         
     print('Starting parallel processing with {} cores'.format(nCPU))
     results = Parallel(n_jobs=nCPU)(delayed(worker)(i) for i in range(sims))
@@ -665,7 +668,7 @@ if True:
         NE += results[i][1]
     print(f'Finished sequential processing in {timer.time()-start:.2f} seconds')
     print('Creating graph')
-    discounting = np.array([HW.marketZCB(t) for t in time])
+    discounting = 1#np.array([HW.marketZCB(t) for t in time])
     sigmaP = 0
     sigmaM = 0
     for H in results:
@@ -797,7 +800,8 @@ if True:
                         
         exposure = np.where(swaption > 0, np.maximum(swaption-VM-IM,0), np.minimum(swaption-VM+IM,0))
         print('{:.2f}%'.format(round(i/sims*100, 2)), end='\r')
-        return np.maximum(exposure, 0), np.minimum(exposure, 0)
+        D = np.cumprod(np.insert(np.exp(-float[:-1:]*dt),0,1))
+        return D*np.maximum(exposure, 0), D*np.minimum(exposure, 0)
         
         
 
@@ -812,7 +816,7 @@ if True:
         NE += results[i][1]
     print(f'Finished sequential processing in {timer.time()-start:.2f} seconds')
     print('Creating graph')
-    discounting = np.array([HW.marketZCB(t) for t in time])
+    discounting = 1#np.array([HW.marketZCB(t) for t in time])
     sigmaP = 0
     sigmaM = 0
     for H in results:
