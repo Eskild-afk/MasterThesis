@@ -328,7 +328,7 @@ if False:
         f.write(f'\n{sims},{int(1/dt)},{cva},{cvaUB},{cvaLB},{dva},{dvaUB},{dvaLB},5Y10Y Payer Swaption Exposure,{timer.time()-start:.2f}')
 # Swap with Variation Margin
 
-if True:
+if False:
     print('10Y Payer Swap with Variation Margin')
     start = timer.time()
     
@@ -451,7 +451,7 @@ if True:
         f.write(f'\n{sims},{int(1/dt)},{cva},{cvaUB},{cvaLB},{dva},{dvaUB},{dvaLB},10Y Payer Swap with VM,{timer.time()-start:.2f}')      
 
 # Swaption with Variation Margin
-if True:
+if False:
     print('5Y10Y Payer Swaption Exposure with Variation Margin')
     start = timer.time()
     
