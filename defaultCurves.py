@@ -3,6 +3,7 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 from scipy.optimize import curve_fit
 from scipy import interpolate
+from scipy.integrate import quad
 # timeStamp  = np.array([0, 180,360,720,1080,1440,1800,2520,3600,5400,7200,10800])/365 #Article time stamp
 timeStamp = np.array([0.5,1,2,3,4,5,7,10])
 CDSspreadI = np.array([34.8,  41.6 ,  51.5,  61.1,  71.8,  83.6,  95.9, 104.9])/10000 #Danske Bank CDS
@@ -21,21 +22,23 @@ l = 0.03
 
 def lI(t):
         if any(timeStamp>=t):
-            return CDSspreadI[np.where(timeStamp >= t )][0]
+            return CDSspreadI[np.where(timeStamp >= t )][0]/(1-R)
         else:
-            return CDSspreadI[-1]
+            return CDSspreadI[-1]/(1-R)
     
 def lC(t):
         if any(timeStamp>=t):
-            return CDSspreadC[np.where(timeStamp >= t )][0]
+            return CDSspreadC[np.where(timeStamp >= t )][0]/(1-R)
         else:
-            return CDSspreadC[-1]
+            return CDSspreadC[-1]/(1-R)
         
 def SI(t):
-    return np.exp(-lI(t)*t/(1-R))
+    # return np.exp(-quad(lambda x: lI(x), 0, t)[0])
+    return np.exp(-lI(t)*t)
 
 def SC(t):
-    return np.exp(-lC(t)*t/(1-R))
+    # return np.exp(-quad(lambda x: lC(x), 0, t)[0])
+    return np.exp(-lC(t)*t)
 
 def QI(t):
     return 1-SI(t)
@@ -54,6 +57,19 @@ def DVA(time, dt, NE):
     for i in range(1,len(time)):
         sum += NE[i]*SC(time[i])*(QI(time[i])-QI(time[i-1]))
     return -sum
+
+def FCA(time, PE, s):
+    sum = 0
+    for i in range(1,len(time)):
+        sum += s*SI(time[i])*SC(time[i])*PE[i]*(time[i]-time[i-1])
+    return -sum
+
+def FBA(time, NE, s):
+    sum = 0
+    for i in range(1,len(time)):
+        sum += s*SI(time[i])*SC(time[i])*NE[i]*(time[i]-time[i-1])
+    return -sum
+
 
 '''fig, ax = plt.subplots()
 fig.set_size_inches(15,8)
