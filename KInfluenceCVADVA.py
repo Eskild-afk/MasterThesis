@@ -25,7 +25,7 @@ S=np.arange(0,11,1)
 
 # Other settings
 dt   = 1/12
-sims = 100
+sims = 1000
 total_time = timer.time()
 
 KVM=0 # Threshold for VM
@@ -36,7 +36,7 @@ Kvals = np.array([0, 0.1, 0.2, 0.3, 0.4, 0.5])
 MTAvals = np.array([0, 0.1, 0.2, 0.3, 0.4, 0.5])
 
 
-if False:
+if True:
     print('10Y Payer Swap K changes CVA and DVA')
     start = timer.time()
     
@@ -533,7 +533,7 @@ if False:
     plt.savefig(f'./Graphs/K_Change_DVA_Swaption_N={sims}_dt={int(1/dt)}.png', bbox_inches='tight')
 
 
-if True:
+if False:
     print('5x10Y Payer Swaption Mta change CVA DVA')
     start = timer.time()
     
