@@ -25,7 +25,7 @@ S=np.arange(0,11,1)
 
 # Other settings
 dt   = 1/12
-sims = 100
+sims = 1000
 total_time = timer.time()
 
 KVM=0 # Threshold for VM
@@ -36,7 +36,7 @@ Kvals = np.array([0, 0.1, 0.2, 0.3, 0.4, 0.5])
 MTAvals = np.array([0, 0.1, 0.2, 0.3, 0.4, 0.5])
 
 
-if False:
+if True:
     print('10Y Payer Swap K changes CVA and DVA')
     start = timer.time()
     
@@ -132,35 +132,19 @@ if False:
         HMUB = discounting*NE/sims+3*sigmaM/np.sqrt(sims)
         HMLB = discounting*NE/sims-3*sigmaM/np.sqrt(sims)
 
-        sum = 0
-        lower = 0
-        upper = 0
-        for i in range(len(time)):
-            sum += PE[i]*SC(time[i])*lC(time[i])*QC(time[i]+dt)/sims
-            upper += HPUB[i]*SC(time[i])*lC(time[i])*QC(time[i]+dt)
-            lower += HPLB[i]*SC(time[i])*lC(time[i])*QC(time[i]+dt)
+        CVA_val = CVA(time, dt, PE)/sims
+        CVA_UB = CVA(time, dt, HPUB)
+        CVA_LB = CVA(time, dt, HPLB)
 
-        CVA = - sum
-        CVA_UB = - upper
-        CVA_LB = - lower
-
-        sum = 0
-        lower = 0
-        upper = 0
-        for i in range(len(time)):
-            sum += NE[i]*SI(time[i])*lC(time[i])*QC(time[i]+dt)/sims
-            upper += HMUB[i]*SC(time[i])*lC(time[i])*QC(time[i]+dt)
-            lower += HMLB[i]*SC(time[i])*lC(time[i])*QC(time[i]+dt)
-        
-        DVA = - sum
-        DVA_UB = - upper
-        DVA_LB = - lower
+        DVA_val = DVA(time, dt, NE)/sims
+        DVA_UB = DVA(time, dt, HMUB)
+        DVA_LB = DVA(time, dt, HMLB)
 
         res['K'].append(KVM)
-        res['CVA'].append(CVA)
+        res['CVA'].append(CVA_val)
         res['CVA upper bound'].append(CVA_UB)
         res['CVA lower bound'].append(CVA_LB)
-        res['DVA'].append(DVA)
+        res['DVA'].append(DVA_val)
         res['DVA upper bound'].append(DVA_UB)
         res['DVA lower bound'].append(DVA_LB)
 
@@ -169,7 +153,7 @@ if False:
     cvaval = [-5108.98]*len(results)
     cva_lower = [-5108.98*(1+0.061)]*len(results)
     cva_upper = [-5108.98*(1-0.061)]*len(results)
-    #Upper three are all hardcoded from tabel with CVA/DVA 
+    #Upper three are all hardcoded from tabel with CVA/DVA with matching dt
 
     x = results['K']*100
     y = results['CVA']*1000000
@@ -216,7 +200,7 @@ if False:
     plt.savefig(f'./Graphs/K_Change_DVA_Swap_N={sims}_dt={int(1/dt)}.png', bbox_inches='tight')
 
 
-if True:
+if False:
     print('10Y Payer Swap Mta change CVA DVA')
     start = timer.time()
     
@@ -312,35 +296,19 @@ if True:
         HMUB = discounting*NE/sims+3*sigmaM/np.sqrt(sims)
         HMLB = discounting*NE/sims-3*sigmaM/np.sqrt(sims)
 
-        sum = 0
-        lower = 0
-        upper = 0
-        for i in range(len(time)):
-            sum += PE[i]*SC(time[i])*lC(time[i])*QC(time[i]+dt)/sims
-            upper += HPUB[i]*SC(time[i])*lC(time[i])*QC(time[i]+dt)
-            lower += HPLB[i]*SC(time[i])*lC(time[i])*QC(time[i]+dt)
+        CVA_val = CVA(time, dt, PE)/sims
+        CVA_UB = CVA(time, dt, HPUB)
+        CVA_LB = CVA(time, dt, HPLB)
 
-        CVA = - sum
-        CVA_UB = - upper
-        CVA_LB = - lower
-
-        sum = 0
-        lower = 0
-        upper = 0
-        for i in range(len(time)):
-            sum += NE[i]*SI(time[i])*lC(time[i])*QC(time[i]+dt)/sims
-            upper += HMUB[i]*SC(time[i])*lC(time[i])*QC(time[i]+dt)
-            lower += HMLB[i]*SC(time[i])*lC(time[i])*QC(time[i]+dt)
-        
-        DVA = - sum
-        DVA_UB = - upper
-        DVA_LB = - lower
+        DVA_val = DVA(time, dt, NE)/sims
+        DVA_UB = DVA(time, dt, HMUB)
+        DVA_LB = DVA(time, dt, HMLB)
 
         res['MTA'].append(MTA)
-        res['CVA'].append(CVA)
+        res['CVA'].append(CVA_val)
         res['CVA upper bound'].append(CVA_UB)
         res['CVA lower bound'].append(CVA_LB)
-        res['DVA'].append(DVA)
+        res['DVA'].append(DVA_val)
         res['DVA upper bound'].append(DVA_UB)
         res['DVA lower bound'].append(DVA_LB)
 
