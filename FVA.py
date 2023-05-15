@@ -26,10 +26,10 @@ def BP(bp):
     '''Converts basis points to decimal'''
     return bp/10000
 
-sm = BP(100) # spread minus
-sp = BP(200) # spread plus
+sm = BP(25) # spread minus
+sp = BP(100) # spread plus
 
-if True: #If it should use average between fundings
+if False: #If it should use average between fundings
     avg = 0.5*(sm+sp)
     sm = avg
     sp = avg
@@ -150,9 +150,8 @@ if True:
         f.write(f'\n{sims},{int(1/dt)},{cva},{dva},{fca},{fba},{sp},{sm},10Y Payer Swap Exposure,{timer.time()-start:.2f}')
 
     
-print(f'Simulation started with dt=1/{int(1/dt)} and N={sims}')
-if True:
-    print('10Y Payer Swap Exposure')
+if False:
+    print('5Y10Y Payer Swaption Exposure')
     start = timer.time()
     
     #Constructing time grid
