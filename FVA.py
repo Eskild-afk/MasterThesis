@@ -26,10 +26,10 @@ def BP(bp):
     '''Converts basis points to decimal'''
     return bp/10000
 
-sm = BP(100) # spread minus
-sp = BP(200) # spread plus
+sm = BP(0) # spread minus
+sp = BP(0) # spread plus
 
-if True: #If it should use average between fundings
+if False: #If it should use average between fundings
     avg = 0.5*(sm+sp)
     sm = avg
     sp = avg
@@ -44,7 +44,7 @@ MTA=0 # Minimum Transfer Amount
 lag=2/365 # Lookback lag
 #10Y Payer Swap Exposure
 print(f'Simulation started with dt=1/{int(1/dt)} and N={sims}')
-if True:
+if False:
     print('10Y Payer Swap Exposure')
     start = timer.time()
     
@@ -150,15 +150,11 @@ if True:
         f.write(f'\n{sims},{int(1/dt)},{cva},{dva},{fca},{fba},{sp},{sm},10Y Payer Swap Exposure,{timer.time()-start:.2f}')
 
     
-print(f'Simulation started with dt=1/{int(1/dt)} and N={sims}')
 if True:
-    print('10Y Payer Swap Exposure')
-    start = timer.time()
-    
+    print('5Y10Y Payer Swaption Exposure')
     #Constructing time grid
-    time = np.arange(0,10+dt,dt)
-    time = time[np.where(time<=10)]
-
+    time = np.arange(0,10+5+dt,dt)
+    time = time[np.where(time <= 15)]
     #Constructing lagged grid
     if dt == 1/365:
         lagged_time = time[0:len(time)-2]
@@ -167,7 +163,7 @@ if True:
         lagged_time = (time-lag)[1::]
         ttso = np.insert(time, np.arange(1,len(time)), lagged_time)
 
-    K=fsolve(lambda x: HW.swap(0, S, T, x), x0=0.02)[0]
+    K=fsolve(lambda x: HW.swap(0, S+5, T+5, x), x0=0.02)[0]
 
     def worker(i):
         float = HW.create_path(dt, 15, 0, i)[1]
