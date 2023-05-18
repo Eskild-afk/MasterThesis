@@ -21,8 +21,8 @@ ENE = load('./SimulationData/NE_10Y_Swap_N=100000_dt=365.joblib')
 def worker(Te):
     print(Te, end='                                                              \r')
     return HW.swaption(0,Te,S,T,K, payer=True), HW.swaption(0,Te,S,T,K, payer=False)
-Ncpu = 14#int(cpu_count()/2)
-time = np.arange(0,10+2/365,2/365)
+Ncpu = 16#int(cpu_count()/2)
+time = np.arange(0,10+1/12,1/12)
 AnalyticalEESwap10Y = Parallel(n_jobs=Ncpu)(delayed(worker)(Te) for Te in time)
 
 PE = []
