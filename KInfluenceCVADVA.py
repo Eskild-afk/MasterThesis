@@ -25,7 +25,7 @@ S=np.arange(0,11,1)
 
 # Other settings
 dt   = 1/12
-sims = 1000
+sims = 5000
 total_time = timer.time()
 
 KVM=0 # Threshold for VM
@@ -36,7 +36,7 @@ Kvals = np.array([0, 0.1, 0.2, 0.3, 0.4, 0.5])
 MTAvals = np.array([0, 0.1, 0.2, 0.3, 0.4, 0.5])
 
 
-if True:
+if False:
     print('10Y Payer Swap K changes CVA and DVA')
     start = timer.time()
     
@@ -170,6 +170,7 @@ if True:
     ax.tick_params(axis='y', direction='in', top = 'True', labelsize = 24, pad = 15)
     ax.xaxis.set_label_coords(0.5, -0.1)
     ax.yaxis.set_label_coords(-0.12, 0.5)
+    ax.set_xlim(0,50)
     ax.fill_between(x, (results['CVA lower bound']*1000000), (results['CVA upper bound']*1000000), color='grey', alpha=0.1)
     plt.legend(frameon = False, fontsize = 18, loc='upper right')
 
@@ -194,13 +195,14 @@ if True:
     ax.tick_params(axis='y', direction='in', top = 'True', labelsize = 24, pad = 15)
     ax.xaxis.set_label_coords(0.5, -0.1)
     ax.yaxis.set_label_coords(-0.12, 0.5)
+    ax.set_xlim(0,50)
     ax.fill_between(x, (results['DVA lower bound']*1000000), (results['DVA upper bound']*1000000), color='grey', alpha=0.1)
-    plt.legend(frameon = False, fontsize = 18, loc='upper right')
+    plt.legend(frameon = False, fontsize = 18, loc='lower right')
 
     plt.savefig(f'./Graphs/K_Change_DVA_Swap_N={sims}_dt={int(1/dt)}.png', bbox_inches='tight')
 
 
-if False:
+if True:
     print('10Y Payer Swap Mta change CVA DVA')
     start = timer.time()
     
@@ -334,6 +336,7 @@ if False:
     ax.tick_params(axis='y', direction='in', top = 'True', labelsize = 24, pad = 15)
     ax.xaxis.set_label_coords(0.5, -0.1)
     ax.yaxis.set_label_coords(-0.12, 0.5)
+    ax.set_xlim(0,50)
     ax.fill_between(x, (results['CVA lower bound']*1000000), (results['CVA upper bound']*1000000), color='grey', alpha=0.1)
     plt.legend(frameon = False, fontsize = 18, loc='upper right')
 
@@ -358,8 +361,9 @@ if False:
     ax.tick_params(axis='y', direction='in', top = 'True', labelsize = 24, pad = 15)
     ax.xaxis.set_label_coords(0.5, -0.1)
     ax.yaxis.set_label_coords(-0.12, 0.5)
+    ax.set_xlim(0,50)
     ax.fill_between(x, (results['DVA lower bound']*1000000), (results['DVA upper bound']*1000000), color='grey', alpha=0.1)
-    plt.legend(frameon = False, fontsize = 18, loc='upper right')
+    plt.legend(frameon = False, fontsize = 18, loc='lower right')
 
     plt.savefig(f'./Graphs/MTA_Change_DVA_Swap_N={sims}_dt={int(1/dt)}.png', bbox_inches='tight')
 
