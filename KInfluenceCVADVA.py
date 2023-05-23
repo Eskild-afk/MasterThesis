@@ -171,6 +171,7 @@ if False:
     ax.xaxis.set_label_coords(0.5, -0.1)
     ax.yaxis.set_label_coords(-0.12, 0.5)
     ax.set_xlim(0,50)
+    plt.grid(alpha = 0.25)
     ax.fill_between(x, (results['CVA lower bound']*1000000), (results['CVA upper bound']*1000000), color='grey', alpha=0.1)
     plt.legend(frameon = False, fontsize = 18, loc='upper right')
 
@@ -196,6 +197,7 @@ if False:
     ax.xaxis.set_label_coords(0.5, -0.1)
     ax.yaxis.set_label_coords(-0.12, 0.5)
     ax.set_xlim(0,50)
+    plt.grid(alpha = 0.25)
     ax.fill_between(x, (results['DVA lower bound']*1000000), (results['DVA upper bound']*1000000), color='grey', alpha=0.1)
     plt.legend(frameon = False, fontsize = 18, loc='lower right')
 
@@ -337,6 +339,7 @@ if True:
     ax.xaxis.set_label_coords(0.5, -0.1)
     ax.yaxis.set_label_coords(-0.12, 0.5)
     ax.set_xlim(0,50)
+    plt.grid(alpha = 0.25)
     ax.fill_between(x, (results['CVA lower bound']*1000000), (results['CVA upper bound']*1000000), color='grey', alpha=0.1)
     plt.legend(frameon = False, fontsize = 18, loc='upper right')
 
@@ -362,6 +365,7 @@ if True:
     ax.xaxis.set_label_coords(0.5, -0.1)
     ax.yaxis.set_label_coords(-0.12, 0.5)
     ax.set_xlim(0,50)
+    plt.grid(alpha = 0.25)
     ax.fill_between(x, (results['DVA lower bound']*1000000), (results['DVA upper bound']*1000000), color='grey', alpha=0.1)
     plt.legend(frameon = False, fontsize = 18, loc='lower right')
 
