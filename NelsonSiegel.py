@@ -37,36 +37,36 @@ class NelsonSiegel(Dynamic):
         return np.array([[-self.A(t=t, T=T)/t for t in self.tList]])
 
     def B(self, t, T):
-        return np.array([-(T-t), (np.exp(-self.Lambda * (T-t)) - 1) / self.Lambda, (T-t) * np.exp( - self.Lambda *(T-t))])
+        return np.array([-(T-t), (np.exp(-self.Lambda * (T-t)) - 1) / self.Lambda, (T-t) * np.exp( - self.Lambda *(T-t))]).reshape(3,1)
 
     def Bmatrix(self):
         return np.array([-self.B(t=t, T=T)/t for t in self.tList])
 
     def oneStep(self, t, stepfrom, stepsize, fwd = 0, Z=None):
-        Z = np.array([[np.random.normal(0,1)], [np.random.normal(0,1)], [np.random.normal(0,1)]])
+        Z = np.random.normal(loc=0,scale=1, size=3).reshape(3,1)
 
         KQ = np.array([
             [0, 0, 0],
             [0, self.Lambda, -self.Lambda],
             [0,0,self.Lambda]
-            ])
+            ]).reshape(3,3)
 
-        ThetaQ = np.array([[0],[0],[0]])
+        ThetaQ = np.array([[0],[0],[0]]).reshape(3,1)
 
         Sigma = np.array([
             [self.sigmaL, 0, 0],
             [0, self.sigmaS, 0],
             [0,0,self.sigmaC]
-            ])
+            ]).reshape(3,3)
 
-        dX = np.matmul(KQ,ThetaQ - self.Xt)*stepsize + np.matmul(Sigma, np.sqrt(stepsize)*Z)
+        dX = np.matmul(KQ,ThetaQ - self.Xt)*stepsize + np.matmul(Sigma, np.sqrt(stepsize)*(Z-Sigma @ self.B(t, fwd)))
 
         return stepfrom+dX
 
-    def ZCB(self, t, T, initial: np.array or None):
-        if initial.all() == None:
+    def ZCB(self, t, T, initial = np.repeat(None,3)):
+        if initial.any() == None:
             initial = self.Xt
-        zcb = np.exp( - self.A(t,T) - np.matmul( self.B(t,T) , initial )[0])
+        zcb = np.exp( - self.A(t,T) - np.matmul( self.B(t,T).T , initial )[0])
 
         return zcb
 
@@ -78,7 +78,7 @@ class NelsonSiegel(Dynamic):
         initRate: initial rate of the swap
         payer: True if payer, False if receiver
         '''
-        if initRate==None:
+        if initRate.all()==None:
             initRate = self.Xt
 
         if t >= T[-1]:
