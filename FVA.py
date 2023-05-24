@@ -45,7 +45,7 @@ for x in [0]:
     lag=2/365 # Lookback lag
     #10Y Payer Swap Exposure
     print(f'Simulation started with dt=1/{int(1/dt)} and N={sims}')
-    if False:
+    if True:
         print('10Y Payer Swap Exposure')
         start = timer.time()
         

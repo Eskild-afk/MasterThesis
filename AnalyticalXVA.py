@@ -15,14 +15,15 @@ K=fsolve(lambda x: HW.swap(0, S, T, x), x0=0.02)[0]
 from joblib import load, Parallel, delayed, cpu_count, dump
 import seaborn as sns
 import time
-EPE = load('./SimulationData/PE_10Y_Swap_N=100000_dt=365.joblib')
-ENE = load('./SimulationData/NE_10Y_Swap_N=100000_dt=365.joblib')
+# EPE = load('./SimulationData/PE_10Y_Swap_N=100000_dt=365.joblib')
+# ENE = load('./SimulationData/NE_10Y_Swap_N=100000_dt=365.joblib')
 
 def worker(Te):
     print(Te, end='                                                              \r')
     return HW.swaption(0,Te,S,T,K, payer=True), HW.swaption(0,Te,S,T,K, payer=False)
-Ncpu = 16#int(cpu_count()/2)
-time = np.arange(0,10+1/12,1/12)
+Ncpu = int(cpu_count()/1)
+time = np.arange(0,10+1/365,1/365)
+time = time[np.where(time<=10)]
 AnalyticalEESwap10Y = Parallel(n_jobs=Ncpu)(delayed(worker)(Te) for Te in time)
 
 PE = []
