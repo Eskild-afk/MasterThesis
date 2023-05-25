@@ -59,7 +59,7 @@ class NelsonSiegel(Dynamic):
             [0,0,self.sigmaC]
             ]).reshape(3,3)
 
-        dX = np.matmul(KQ,ThetaQ - self.Xt)*stepsize + np.matmul(Sigma, np.sqrt(stepsize)*(Z-Sigma @ self.B(t, fwd)))
+        dX = np.matmul(KQ,ThetaQ - self.Xt.reshape(3,1))*stepsize + np.matmul(Sigma, np.sqrt(stepsize)*(Z-Sigma @ self.B(t, fwd)))
 
         return stepfrom+dX
 
