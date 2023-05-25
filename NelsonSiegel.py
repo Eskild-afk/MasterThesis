@@ -31,7 +31,7 @@ class NelsonSiegel(Dynamic):
             -2 * (T-t) * self.Lambda)
         bracket2 = (1 + (- 1 - 2 * np.square(T - t) * np.square(self.Lambda) - 2 * self.Lambda * (T - t))*np.exp(-2*self.Lambda*(T-t)))
         bracket3 = (1 + (- 1 - 2 * self.Lambda * (T - t))*np.exp(-2*self.Lambda*(T-t)))
-        bracket4 = (1 + (- 1 - self.Lambda * (T - t))*np.exp(-2*self.Lambda*(T-t)))
+        bracket4 = (1 + (- 1 - self.Lambda * (T - t))*np.exp(-self.Lambda*(T-t)))
         return (np.square(self.sigmaL) * np.power((T-t), 3)) / 6 + np.square(self.sigmaS) / (
                 4 * np.power(self.Lambda, 3)) * bracket1 + np.square(self.sigmaC) / (
                 4 * np.power(self.Lambda, 3)) * bracket1 + np.square(self.sigmaC) / (
