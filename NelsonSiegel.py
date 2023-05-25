@@ -1,7 +1,7 @@
 from array import array
 import numpy as np
 from dynamics import Dynamic
-from pandas._libs.hashtable import Vector
+#from pandas._libs.hashtable import Vector
 from helpers import * 
 
 class NelsonSiegel(Dynamic):
@@ -43,7 +43,7 @@ class NelsonSiegel(Dynamic):
         return np.array([-self.B(t=t, T=T)/t for t in self.tList])
 
     def oneStep(self, t, stepfrom, stepsize, fwd = 0, Z=None):
-        Z = np.random.normal(loc=0,scale=1, size=3).reshape(3,1)
+        z = np.random.normal(loc=0,scale=1, size=3).reshape(3,1)
 
         KQ = np.array([
             [0, 0, 0],
@@ -58,10 +58,12 @@ class NelsonSiegel(Dynamic):
             [0, self.sigmaS, 0],
             [0,0,self.sigmaC]
             ]).reshape(3,3)
+        if fwd == 0:
+            dX = np.matmul(KQ,ThetaQ - stepfrom.reshape(3,1))*stepsize + np.matmul(Sigma, np.sqrt(stepsize)*z)
+        else:
+            dX = np.matmul(KQ,ThetaQ - stepfrom.reshape(3,1))*stepsize + np.matmul(Sigma, np.sqrt(stepsize)*(z-Sigma @ self.B(t, fwd).reshape(3,1)))
 
-        dX = np.matmul(KQ,ThetaQ - self.Xt.reshape(3,1))*stepsize + np.matmul(Sigma, np.sqrt(stepsize)*(Z-Sigma @ self.B(t, fwd)))
-
-        return stepfrom+dX
+        return (stepfrom.reshape(3,1)+dX).flatten()
 
     def ZCB(self, t, T, initial = np.repeat(None,3)):
         if initial.any() == None:
@@ -70,7 +72,7 @@ class NelsonSiegel(Dynamic):
 
         return zcb
 
-    def swap(self, t, S:np.array, T:np.array, K, initRate=None, payer=True):
+    def swap(self, t, S:np.array, T:np.array, K, initRate=np.array([None,None,None]), payer=True):
         '''
         t: time the swap should be priced at given the rate r(t)
         S: vector of of fixed schedule reset dates S0..Sm
@@ -78,7 +80,8 @@ class NelsonSiegel(Dynamic):
         initRate: initial rate of the swap
         payer: True if payer, False if receiver
         '''
-        if initRate.all()==None:
+
+        if (initRate==None).any():
             initRate = self.Xt
 
         if t >= T[-1]:
@@ -100,8 +103,8 @@ class NelsonSiegel(Dynamic):
         return w*(self.ZCB(t,T[0],initRate)-self.ZCB(t,T[-1],initRate)-sum)
 
     def swapextended(self, t, S:np.array, T:np.array, K, floatRate, schedule, initRate=None, payer=True):
-        if initRate==None:
-            initRate = np.sum(self.Xt)
+        if (initRate==None).any():
+            initRate = self.Xt
         
         if t >= S[-1]:
             return 0
