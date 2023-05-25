@@ -29,15 +29,21 @@ class NelsonSiegel(Dynamic):
     def A(self, t, T):
         bracket1 = 2 * (T-t) * self.Lambda - 3 + 4 * np.exp(-(T-t) * self.Lambda) - np.exp(
             -2 * (T-t) * self.Lambda)
-        bracket2 = (1 + (- 1 - 2 * (T - t)**2 * np.square(self.Lambda) - 2 * self.Lambda * (T - t))*np.exp(-2*self.Lambda*(T-t)))
+        bracket2 = (1 + (- 1 - 2 * np.square(T - t) * np.square(self.Lambda) - 2 * self.Lambda * (T - t))*np.exp(-2*self.Lambda*(T-t)))
+        bracket3 = (1 + (- 1 - 2 * self.Lambda * (T - t))*np.exp(-2*self.Lambda*(T-t)))
+        bracket4 = (1 + (- 1 - self.Lambda * (T - t))*np.exp(-2*self.Lambda*(T-t)))
         return (np.square(self.sigmaL) * np.power((T-t), 3)) / 6 + np.square(self.sigmaS) / (
-                4 * np.power(self.Lambda, 3)) * bracket1 + bracket2/(4*np.power(self.Lambda,3))
+                4 * np.power(self.Lambda, 3)) * bracket1 + np.square(self.sigmaC) / (
+                4 * np.power(self.Lambda, 3)) * bracket1 + np.square(self.sigmaC) / (
+                8 * np.power(self.Lambda, 3)) * bracket2 + np.square(self.sigmaC) / (
+                4 * np.power(self.Lambda, 2)) * bracket3 + np.square(self.sigmaC) / (
+                np.power(self.Lambda, 2)) * bracket4
 
     def Avector(self):
         return np.array([[-self.A(t=t, T=T)/t for t in self.tList]])
 
     def B(self, t, T):
-        return np.array([-(T-t), (np.exp(-self.Lambda * (T-t)) - 1) / self.Lambda, (T-t) * np.exp( - self.Lambda *(T-t))]).reshape(3,1)
+        return np.array([-(T-t), (np.exp(-self.Lambda * (T-t)) - 1) / self.Lambda, (T-t) * np.exp( - self.Lambda *(T-t)) - (np.exp(-self.Lambda * (T-t)) - 1) / self.Lambda]).reshape(3,1)
 
     def Bmatrix(self):
         return np.array([-self.B(t=t, T=T)/t for t in self.tList])
