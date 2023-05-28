@@ -12,17 +12,23 @@ from defaultCurves import *
 import sys
 from NelsonSiegel import *
 
-beta = np.array([1.879892, 0.579211, 	3.993992, 1.445091])
-tau  = np.array([ 16.633491, 	0.319680])
-reversion=0.08670264780833303 #0.13949636660880768
-volatility=0.013928489964789946 #0.017793899652989272
-HW = NelsonSiegel(
-    Lambda = 0.73963909,
-    initial = np.array([0.00450864, 0.00447636, 0.01101805]),
-    sigmaL = 0.00179664,
-    sigmaS= 0.03077568,
-    sigmaC = 0.00100149)
 
+# HW = NelsonSiegel(
+#     Lambda = 0.47187744,
+#     initial = np.array([-0.0122903  ,-0.02278845, -0.00915193]),
+#     sigmaL = 0.00380475,
+#     sigmaS= 0.0093529,
+#     sigmaC = 0.00612869)
+
+res = [-0.00292578, -0.03671727, -0.00966689,  0.07525687,  0.00150408,  0.00681309, 0.00056876]
+HW = NelsonSiegel(
+    initial = np.array([res[0]  ,res[1], res[2]]),
+    Lambda = res[3],
+    sigmaL = res[4],
+    sigmaS= res[5],
+    sigmaC = res[6])
+    
+      
 nCPU=int(cpu_count()/1-0)
 #Setting up tenor
 T=np.arange(0,10+0.5,0.5)
@@ -30,7 +36,7 @@ S=np.arange(0,11,1)
 
 # Other settings
 dt   = 1/365
-sims = 100
+sims = 5000
 total_time = timer.time()
 
 KVM=0 # Threshold for VM
@@ -56,7 +62,7 @@ if True:
         ttso = np.insert(time, np.arange(1,len(time)), lagged_time)
 
     K=fsolve(lambda x: HW.swap(0, S, T, K=x), x0=0.02)[0]
-
+    print(f'THIS IS THE STRIKE MY MAN K={K}')
     def worker(i):
         float = HW.create_path(dt, 10,fwd=0,seed=i)[1]
         # D = np.insert(np.exp(-float[:-1:]*time[1::]),0,1)
