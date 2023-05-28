@@ -45,7 +45,7 @@ MTA=0 # Minimum Transfer Amount
 lag=2/365 # Lookback lag
 #10Y Payer Swap Exposure
 print(f'Simulation started with dt=1/{int(1/dt)} and N={sims}')
-if True:
+if False:
     print('10Y Payer Swap Exposure')
     start = timer.time()
     
@@ -90,7 +90,7 @@ if True:
     discounting = 1
     sigmaP = 0
     sigmaM = 0
-    for H in results:
+    for H in results: 
         sigmaP += (discounting*(H[0]-PE/sims))**2
         sigmaM += (discounting*(H[1]-NE/sims))**2
     sigmaP = np.sqrt(sigmaP/(sims-1))
@@ -154,3 +154,92 @@ if True:
     print( 'Finished creating graph')
     with open('SimulationTimes.txt', 'a') as f:
         f.write(f'\n{sims},{int(1/dt)},{cva},{cvaUB},{cvaLB},{dva},{dvaUB},{dvaLB},NS10Y Payer Swap Exposure,{timer.time()-start:.2f}')
+
+
+#5Y10Y Payer Swaption Exposure
+if True:
+    print('5Y10Y Payer Swaption Exposure')
+    start = timer.time()
+    #Constructing time grid
+    time = np.arange(0,10+5+dt,dt)
+    time = time[np.where(time <= 15)]
+    #Constructing lagged grid
+    if dt == 1/365:
+        lagged_time = time[0:len(time)-2]
+        ttso = time   #times to simulate on
+    else:
+        lagged_time = (time-lag)[1::]
+        ttso = np.insert(time, np.arange(1,len(time)), lagged_time)
+
+    K=fsolve(lambda x: HW.swap(0, S+5, T+5, x), x0=0.02)[0]
+
+    def worker(i):
+        float = HW.create_path(dt, 15, 0, i)[1]
+        swap = np.array([HW.swaption(t, Te=5, S=S+5, T=T+5, K=K, floatRate=float, schedule=time, initRate=x) for t,x in zip(time,float)])
+        D = np.cumprod(np.insert(np.exp(-float[:-1:].sum(axis=-1)*dt),0,1))
+        if swap[np.where(time==5)] < 0:
+            swap[np.where(time>=5)]=0
+        print('{:.2f}%'.format(round(i/sims*100, 2)), end='\r')
+        return D*np.maximum(swap,0), D*np.minimum(swap,0)
+
+    print('Starting parallel processing with {} cores'.format(nCPU))
+    results = Parallel(n_jobs=nCPU)(delayed(worker)(i) for i in range(sims))
+    print('Finished parallel processing')
+    PE = np.zeros(len(time))
+    NE = np.zeros(len(time))
+    print('Starting sequential processing')
+    for i in range(len(results)):
+        PE += results[i][0]
+        NE += results[i][1]
+    print(f'Finished sequential processing in {timer.time()-start:.2f} seconds')
+    print('Creating graph')
+    discounting = 1 #np.array([HW.marketZCB(t) for t in time])
+    sigmaP = 0
+    sigmaM = 0
+    for H in results:
+        sigmaP += (discounting*(H[0]-PE/sims))**2
+        sigmaM += (discounting*(H[1]-NE/sims))**2
+    sigmaP = np.sqrt(sigmaP/(sims-1))
+    sigmaM = np.sqrt(sigmaM/(sims-1))
+
+    HPUB = discounting*PE/sims+3*sigmaP/np.sqrt(sims)
+    HPLB = discounting*PE/sims-3*sigmaP/np.sqrt(sims)
+    HMUB = discounting*NE/sims+3*sigmaM/np.sqrt(sims)
+    HMLB = discounting*NE/sims-3*sigmaM/np.sqrt(sims)
+    plt.rc('font',family='Times New Roman')
+    float_x = np.arange(5.5,15.5,0.5)
+    float_y = np.full((len(float_x),), -2.6)
+    fix_x = np.arange(6,16)
+    fix_y = np.full(len(fix_x), -2)
+
+    fig, ax = plt.subplots()
+    sns.lineplot(x=time, y=discounting*PE/sims*100, label = 'EPE')
+    sns.lineplot(x=time, y=discounting*NE/sims*100, label = 'ENE')
+    plt.scatter(x=float_x, y=float_y, label = 'Float', marker = 'x', s = 60, c='black', linewidths=2)
+    plt.scatter(x=fix_x, y=fix_y, label = 'Fix', marker = 'o', s = 60, facecolors='none', edgecolors='r', linewidths=2)
+    plt.scatter(x=5, y=-2.3, label = 'Expiry', marker = 'v', s = 60, facecolors='none', edgecolors='g', linewidths=2)
+    fig.set_size_inches(15,8)
+    # ax.set_ylim(-6,6)time, float = HW.create_path(1/365,10, seed=0)
+    ax.set_xlim(0,15.1)
+    ax.set_xlabel('Time (Years)', fontname="Times New Roman", fontsize = 28)
+    ax.set_ylabel('Exposure (% Notional)', fontname="Times New Roman", fontsize = 28)
+    ax.tick_params(axis='x', direction='in', right = 'True', labelsize = 24, pad = 15)
+    ax.tick_params(axis='y', direction='in', top = 'True', labelsize = 24, pad = 15)
+    ax.xaxis.set_label_coords(0.5, -0.1)
+    ax.yaxis.set_label_coords(-0.08, 0.5)
+    ax.axhline(y=0, color='k', alpha = 0.25)
+    plt.grid(alpha = 0.25)
+    plt.xticks(np.arange(0, 16, 5))
+    plt.legend(frameon = False, fontsize = 18, loc='upper right')
+    dump(PE/sims, f'./SimulationData/NSPE_5Y10YPayer_Swaption_N={sims}_dt={int(1/dt)}.joblib')
+    dump(NE/sims, f'./SimulationData/NSNE_5Y10YPayer_Swaption_N={sims}_dt={int(1/dt)}.joblib')
+    plt.savefig(f'./Graphs/NSExposure_Plot_5Y10YPayer_Swaption_N={sims}_dt={int(1/dt)}.png', bbox_inches='tight')
+    print( 'Finished creating graph')
+    cva   = CVA(time, dt, discounting*PE/sims)
+    cvaUB = CVA(time, dt, HPUB)
+    cvaLB = CVA(time, dt, HPLB)
+    dva   = DVA(time, dt, discounting*NE/sims)
+    dvaUB = DVA(time, dt, HMUB)
+    dvaLB = DVA(time, dt, HMLB)
+    with open('SimulationTimes.txt', 'a') as f:
+        f.write(f'\n{sims},{int(1/dt)},{cva},{cvaUB},{cvaLB},{dva},{dvaUB},{dvaLB},NS5Y10Y Payer Swaption Exposure,{timer.time()-start:.2f}')
