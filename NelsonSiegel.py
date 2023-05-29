@@ -131,3 +131,40 @@ class NelsonSiegel(Dynamic):
                 return self.ZCB(t, TRp1, initial=r)/self.ZCB(TR, TRp1, initial=rTR)-sum
             else: 
                 return self.ZCB(t, TR, initial=r)-sum
+
+
+    def swaption(self, t, Te, S:np.array, T:np.array, K, floatRate=None, schedule=None, initRate=None, payer=True):
+        
+        if (initRate==None).any():
+            initRate = self.Xt
+
+        if t>=Te:
+            if t<=T[0]:
+                return self.swap(t, S, T, K, initRate, payer)
+            else:
+                return self.swapextended(t=t, S=S, T=T, K=K, initRate=initRate, payer=payer, floatRate=floatRate, schedule=schedule)
+        
+        if Te>= T[-1]:
+            return 0
+        
+        T0 = T[0]
+        T1 = T[1]
+
+        T = T[T>=t-0.5]
+        S = S[S>=t-1]
+
+        T = T[T>=Te-0.5]
+        S = S[S>=Te-1]
+        
+        sum = 0
+
+        rate = self.oneStep(0, self.Xt, Te)
+        if t < Te:
+
+            for Si in S[1::]:
+                ci = K
+                if Si == S[-1]:
+                    ci += 1
+                sum += ci*self.ZCB(Te, Si, rate)
+
+            return np.maximum(1-sum, 0)
