@@ -158,7 +158,7 @@ class NelsonSiegel(Dynamic):
         
         sum = 0
 
-        rate = self.oneStep(0, self.Xt, Te)
+        rate = self.oneStep(0, initRate, Te-t)
         if t < Te:
 
             for Si in S[1::]:
