@@ -217,7 +217,7 @@ if True:
     sns.lineplot(x=time, y=discounting*NE/sims*100, label = 'ENE')
     plt.scatter(x=float_x, y=float_y, label = 'Float', marker = 'x', s = 60, c='black', linewidths=2)
     plt.scatter(x=fix_x, y=fix_y, label = 'Fix', marker = 'o', s = 60, facecolors='none', edgecolors='r', linewidths=2)
-    plt.scatter(x=5, y=-6.3, label = 'Expiry', marker = 'v', s = 60, facecolors='none', edgecolors='g', linewidths=2)
+    # plt.scatter(x=5, y=-6.3, label = 'Expiry', marker = 'v', s = 60, facecolors='none', edgecolors='g', linewidths=2)
     fig.set_size_inches(15,8)
     ax.set_ylim(-7,6)
     ax.set_xlim(0,15.1)
