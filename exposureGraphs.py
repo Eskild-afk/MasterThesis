@@ -142,7 +142,7 @@ if False:
         f.write(f'\n{sims},{int(1/dt)},{cva},{cvaUB},{cvaLB},{dva},{dvaUB},{dvaLB},10Y Payer Swap Exposure,{timer.time()-start:.2f}')
 
 # 5Y10YForward Swap
-if True:
+if False:
     print('5Y10Y Forward Payer Swap Exposure')
     start = timer.time()
     #Constructing time grid
@@ -243,7 +243,7 @@ if True:
     dvaLB = DVA(time, dt, HMLB)
     with open('SimulationTimes.txt', 'a') as f:
         f.write(f'\n{sims},{int(1/dt)},{cva},{cvaUB},{cvaLB},{dva},{dvaUB},{dvaLB},5Y10YForward Swap Exposure,{timer.time()-start:.2f}')
-sys.exit()
+
 #5Y10Y Payer Swaption Exposure
 if False:
     print('5Y10Y Payer Swaption Exposure')

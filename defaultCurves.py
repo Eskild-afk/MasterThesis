@@ -71,6 +71,12 @@ def FBA(time, NE, s):
     return -sum
 
 
+def ColVa(time, Col, s):
+    sum = 0
+    for i in range(1,len(time)):
+        sum += s*SI(time[i])*SC(time[i])*Col[i]*(time[i]-time[i-1])
+    return -sum
+
 fig, ax = plt.subplots()
 fig.set_size_inches(15,8)
 sns.lineplot(x=np.arange(0, 10, 1/365), y=[lI(t)*10000 for t in np.arange(0, 10, 1/365)], label='CDS Spreads for Investor')
